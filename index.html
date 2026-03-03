@@ -11,25 +11,25 @@
 
     <nav class="bg-blue-900 text-white p-4 shadow-md flex justify-between items-center">
         <h1 class="text-xl font-bold tracking-tight">Scores on the Doors</h1>
-        <button id="login-btn" class="bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded text-sm font-semibold transition">Sign In</button>
+        <button id="login-btn" class="bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded text-sm font-semibold transition text-white">Sign In</button>
     </nav>
 
     <main class="max-w-md mx-auto mt-6 p-4 pb-32">
         <div class="flex border-b border-gray-200 mb-6 overflow-x-auto">
-            <button id="tab-fixtures" class="flex-1 py-2 font-bold border-b-2 border-blue-900 text-blue-900 whitespace-nowrap px-4">Fixtures</button>
-            <button id="tab-leaderboard" class="flex-1 py-2 font-bold border-b-2 border-transparent text-gray-400 hover:text-blue-900 whitespace-nowrap px-4">Leaderboard</button>
-            <button id="tab-admin" class="flex-1 py-2 font-bold border-b-2 border-transparent text-red-500 hover:text-red-700 whitespace-nowrap px-4">Admin</button>
+            <button id="tab-fixtures" class="flex-1 py-2 font-bold border-b-2 border-blue-900 text-blue-900 px-4">Fixtures</button>
+            <button id="tab-leaderboard" class="flex-1 py-2 font-bold border-b-2 border-transparent text-gray-400 hover:text-blue-900 px-4">Leaderboard</button>
+            <button id="tab-admin" class="flex-1 py-2 font-bold border-b-2 border-transparent text-red-500 hover:text-red-700 px-4">Admin</button>
         </div>
 
         <section id="section-fixtures">
-            <p id="user-status-msg" class="text-center text-sm text-gray-600 mb-4 italic">Sign in to predict.</p>
+            <p id="user-status-msg" class="text-center text-sm text-gray-600 mb-4 italic">Loading matches...</p>
             <div id="fixtures-container" class="space-y-6"></div>
         </section>
 
         <section id="section-leaderboard" class="hidden">
             <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                 <table class="w-full text-left">
-                    <thead class="bg-gray-50 border-b border-gray-200 text-xs font-bold text-gray-400 uppercase">
+                    <thead class="bg-gray-50 text-xs font-bold text-gray-400 uppercase">
                         <tr><th class="px-4 py-3">Rank</th><th class="px-4 py-3">User</th><th class="px-4 py-3 text-right">Pts</th></tr>
                     </thead>
                     <tbody id="leaderboard-body"></tbody>
@@ -38,10 +38,6 @@
         </section>
 
         <section id="section-admin" class="hidden">
-            <div class="bg-red-50 p-4 rounded-lg border border-red-200 mb-6">
-                <h3 class="font-bold text-red-800 mb-1 text-sm">Manual Score Entry</h3>
-                <p class="text-xs text-red-600">Enter real match results here to update the leaderboard.</p>
-            </div>
             <div id="admin-fixtures-container" class="space-y-4"></div>
         </section>
 
@@ -56,8 +52,8 @@
         <div class="bg-white p-8 rounded-2xl shadow-2xl w-80">
             <h3 class="text-2xl font-bold mb-4 text-center text-blue-900" id="auth-title">Sign In</h3>
             <form id="auth-form" class="space-y-4">
-                <input type="email" id="auth-email" placeholder="Email" class="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required>
-                <input type="password" id="auth-password" placeholder="Password" class="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required>
+                <input type="email" id="auth-email" placeholder="Email" class="w-full px-4 py-3 border border-gray-200 rounded-lg outline-none" required>
+                <input type="password" id="auth-password" placeholder="Password" class="w-full px-4 py-3 border border-gray-200 rounded-lg outline-none" required>
                 <button type="submit" id="auth-submit-btn" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-lg transition">Sign In</button>
             </form>
             <button id="toggle-auth-mode" class="mt-4 text-blue-600 text-sm hover:underline w-full text-center">New here? Sign Up</button>
@@ -65,6 +61,6 @@
         </div>
     </div>
 
-    <script src="app.js?v=1.0.9"></script>
+    <script src="app.js?v=1.1.0"></script>
 </body>
 </html>
