@@ -29,8 +29,11 @@ let currentUser = null;
 
 // Toggle Modal Visibility
 function toggleModal(show) {
-    if (show) authModal.classList.remove('hidden');
-    else authModal.classList.add('hidden');
+    if (show) {
+        authModal.classList.remove('hidden');
+    } else {
+        authModal.classList.add('hidden');
+    }
 }
 
 // Switch between Sign In and Sign Up UI
@@ -44,6 +47,7 @@ toggleAuthModeBtn.addEventListener('click', () => {
 // Handle Form Submission (Login or Signup)
 authForm.addEventListener('submit', async (e) => {
     e.preventDefault(); // Prevent page reload
+    
     const email = authEmail.value;
     const password = authPassword.value;
     authSubmitBtn.textContent = 'Processing...';
@@ -51,41 +55,54 @@ authForm.addEventListener('submit', async (e) => {
     let error;
 
     if (isSignUpMode) {
-        // Create new user in Supabase
-        const { data, error: signUpError } = await supabase.auth.signUp({ email, password });
+        // Create new user in Supabase Auth
+        const { data, error: signUpError } = await supabase.auth.signUp({ 
+            email: email, 
+            password: password 
+        });
         error = signUpError;
         
-        // Bonus: Insert them into our custom 'users' table so they appear on the leaderboard
+        // If successful, add them to our public 'users' table
         if (!error && data.user) {
             await supabase.from('users').insert([{ 
                 uid: data.user.id, 
-                display_name: email.split('@')[0] // Default display name to part of their email
+                display_name: email.split('@')[0] 
             }]);
         }
     } else {
         // Log existing user in
-        const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+        const { error: signInError } = await supabase.auth.signInWithPassword({ 
+            email: email, 
+            password: password 
+        });
         error = signInError;
     }
 
+    // Handle results
     if (error) {
-        alert("Error: " + error.message);
+        alert("Authentication Error: " + error.message);
         authSubmitBtn.textContent = isSignUpMode ? 'Sign Up' : 'Sign In';
     } else {
         toggleModal(false); // Success! Close modal.
-        authForm.reset();
+        authForm.reset();   // Clear the input fields
     }
 });
 
-// Handle Log Out or Open Modal
+// Handle Top Right Navbar Button Click (Log Out or Open Modal)
 loginBtn.addEventListener('click', async () => {
     if (currentUser) {
+        // If they are logged in, this button logs them out
         await supabase.auth.signOut();
     } else {
+        // If they are logged out, this button opens the modal
         toggleModal(true);
     }
 });
-closeModalBtn.addEventListener('click', () => toggleModal(false));
+
+// Handle "Cancel" button in modal
+closeModalBtn.addEventListener('click', () => {
+    toggleModal(false);
+});
 
 // ==========================================
 // 4. AUTH STATE LISTENER (The Magic Part)
@@ -93,16 +110,18 @@ closeModalBtn.addEventListener('click', () => toggleModal(false));
 // This automatically fires when a user logs in, logs out, or refreshes the page
 supabase.auth.onAuthStateChange((event, session) => {
     if (session) {
+        // User just logged in
         currentUser = session.user;
         loginBtn.textContent = 'Sign Out';
-        loginBtn.classList.replace('bg-blue-600', 'bg-red-600');
-        loginBtn.classList.replace('hover:bg-blue-500', 'hover:bg-red-500');
-        console.log("User is logged in:", currentUser.email);
+        loginBtn.classList.remove('bg-blue-600', 'hover:bg-blue-500');
+        loginBtn.classList.add('bg-red-600', 'hover:bg-red-500');
+        console.log("Logged in as:", currentUser.email);
     } else {
+        // User just logged out
         currentUser = null;
         loginBtn.textContent = 'Sign In';
-        loginBtn.classList.replace('bg-red-600', 'bg-blue-600');
-        loginBtn.classList.replace('hover:bg-red-500', 'hover:bg-blue-500');
+        loginBtn.classList.remove('bg-red-600', 'hover:bg-red-500');
+        loginBtn.classList.add('bg-blue-600', 'hover:bg-blue-500');
         console.log("User is logged out.");
     }
 });
