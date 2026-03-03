@@ -4,8 +4,8 @@
 const SUPABASE_URL = 'https://czzfljgkuawccuwuhywf.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN6emZsamdrdWF3Y2N1d3VoeXdmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI0NzEzNTAsImV4cCI6MjA4ODA0NzM1MH0.Ev_jTqHalcTwej5gOC155ttQZdO9J4CAmx6nA2dttAY';
 
-// Initialize the Supabase client
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// FIX: Renamed variable to 'supabaseClient' to avoid clashing with the CDN
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // ==========================================
 // 2. DOM ELEMENTS
@@ -55,8 +55,8 @@ authForm.addEventListener('submit', async (e) => {
     let error;
 
     if (isSignUpMode) {
-        // Create new user in Supabase Auth
-        const { data, error: signUpError } = await supabase.auth.signUp({ 
+        // Create new user using the renamed client
+        const { data, error: signUpError } = await supabaseClient.auth.signUp({ 
             email: email, 
             password: password 
         });
@@ -64,14 +64,14 @@ authForm.addEventListener('submit', async (e) => {
         
         // If successful, add them to our public 'users' table
         if (!error && data.user) {
-            await supabase.from('users').insert([{ 
+            await supabaseClient.from('users').insert([{ 
                 uid: data.user.id, 
                 display_name: email.split('@')[0] 
             }]);
         }
     } else {
         // Log existing user in
-        const { error: signInError } = await supabase.auth.signInWithPassword({ 
+        const { error: signInError } = await supabaseClient.auth.signInWithPassword({ 
             email: email, 
             password: password 
         });
@@ -91,10 +91,10 @@ authForm.addEventListener('submit', async (e) => {
 // Handle Top Right Navbar Button Click (Log Out or Open Modal)
 loginBtn.addEventListener('click', async () => {
     if (currentUser) {
-        // If they are logged in, this button logs them out
-        await supabase.auth.signOut();
+        // Log out
+        await supabaseClient.auth.signOut();
     } else {
-        // If they are logged out, this button opens the modal
+        // Open modal
         toggleModal(true);
     }
 });
@@ -105,10 +105,9 @@ closeModalBtn.addEventListener('click', () => {
 });
 
 // ==========================================
-// 4. AUTH STATE LISTENER (The Magic Part)
+// 4. AUTH STATE LISTENER
 // ==========================================
-// This automatically fires when a user logs in, logs out, or refreshes the page
-supabase.auth.onAuthStateChange((event, session) => {
+supabaseClient.auth.onAuthStateChange((event, session) => {
     if (session) {
         // User just logged in
         currentUser = session.user;
