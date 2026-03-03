@@ -19,15 +19,15 @@
     <main class="max-w-md mx-auto mt-6 p-4">
         <header class="text-center mb-8">
             <h2 class="text-2xl font-extrabold mb-2 text-blue-900">Live Fixtures</h2>
-            <p class="text-sm text-gray-600">Enter your scores below.</p>
+            <p class="text-sm text-gray-600 italic">Only logged-in users can save predictions.</p>
         </header>
 
         <div id="fixtures-container" class="space-y-6">
             <p class="text-center text-gray-500 italic">Loading matches...</p>
         </div>
 
-        <button id="submit-predictions-btn" class="hidden w-full mt-8 bg-green-600 hover:bg-green-500 text-white font-bold py-3 rounded-lg shadow-lg transition">
-            Save All Predictions
+        <button id="submit-predictions-btn" class="hidden w-full mt-8 bg-green-600 hover:bg-green-500 text-white font-bold py-4 rounded-xl shadow-lg transition-all active:scale-95">
+            Lock In Predictions
         </button>
     </main>
 
@@ -45,11 +45,11 @@
                 </div>
                 <button type="submit" id="auth-submit-btn" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded transition">Sign In</button>
             </form>
-            <button id="toggle-auth-mode" class="mt-4 text-blue-600 text-sm hover:underline w-full">Need an account? Sign Up</button>
-            <button id="close-modal-btn" class="mt-2 w-full text-gray-400 text-sm">Cancel</button>
+            <button id="toggle-auth-mode" class="mt-4 text-blue-600 text-sm hover:underline w-full text-center">Need an account? Sign Up</button>
+            <button id="close-modal-btn" class="mt-2 w-full text-gray-400 text-sm text-center">Cancel</button>
         </div>
     </div>
 
-    <script src="app.js?v=1.0.3"></script>
+    <script src="app.js?v=1.0.4"></script>
 </body>
 </html>
