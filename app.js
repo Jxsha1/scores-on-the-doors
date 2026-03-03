@@ -18,105 +18,80 @@ const statusMsg = document.getElementById('user-status-msg');
 let isSignUpMode = false;
 let currentUser = null;
 
-// --- FIXTURE LOGIC ---
-
+// --- FIXTURES ---
 async function fetchFixtures() {
-    console.log("Fetching fixtures...");
     const { data, error } = await sbClient.from('fixtures').select('*').order('kickoff_time', { ascending: true });
-    
     if (error) {
-        console.error("Fixture error:", error);
-        fixturesContainer.innerHTML = `<p class="text-red-500 text-center">Error loading fixtures.</p>`;
+        fixturesContainer.innerHTML = `<p class="text-red-500 text-center">Error: ${error.message}</p>`;
         return;
     }
-
     fixturesContainer.innerHTML = ''; 
     data.forEach(fixture => {
-        const fixtureHtml = `
+        fixturesContainer.insertAdjacentHTML('beforeend', `
             <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200" data-fixture-id="${fixture.fixture_id}">
-                <div class="flex justify-between items-center mb-4 text-gray-400 font-bold text-[10px] uppercase tracking-tighter">
+                <div class="flex justify-between items-center mb-3 text-[10px] font-bold text-gray-400 uppercase">
                     <span>${new Date(fixture.kickoff_time).toLocaleString()}</span>
-                    <span class="px-2 py-0.5 bg-blue-50 text-blue-600 rounded">EPL</span>
+                    <span>Premier League</span>
                 </div>
-                <div class="flex items-center justify-between gap-2">
-                    <div class="flex-1 text-right font-bold text-base truncate">${fixture.home_team}</div>
+                <div class="flex items-center justify-between">
+                    <div class="flex-1 text-right font-bold pr-2">${fixture.home_team}</div>
                     <div class="flex gap-1">
-                        <input type="number" id="home-${fixture.fixture_id}" class="prediction-input w-10 h-10 text-center border-2 border-gray-100 rounded-lg text-lg font-bold focus:border-blue-500 focus:outline-none bg-gray-50" placeholder="-">
-                        <input type="number" id="away-${fixture.fixture_id}" class="prediction-input w-10 h-10 text-center border-2 border-gray-100 rounded-lg text-lg font-bold focus:border-blue-500 focus:outline-none bg-gray-50" placeholder="-">
+                        <input type="number" id="home-${fixture.fixture_id}" class="w-10 h-10 text-center border-2 border-gray-100 rounded font-bold" placeholder="-">
+                        <input type="number" id="away-${fixture.fixture_id}" class="w-10 h-10 text-center border-2 border-gray-100 rounded font-bold" placeholder="-">
                     </div>
-                    <div class="flex-1 text-left font-bold text-base truncate">${fixture.away_team}</div>
+                    <div class="flex-1 text-left font-bold pl-2">${fixture.away_team}</div>
                 </div>
             </div>
-        `;
-        fixturesContainer.insertAdjacentHTML('beforeend', fixtureHtml);
+        `);
     });
 }
 
-// --- SUBMISSION LOGIC ---
-
+// --- SUBMISSION ---
 submitBtn.addEventListener('click', async () => {
-    console.log("Submit button clicked!");
-    if (!currentUser) return alert("Sign in first!");
-
-    const predictionRows = [];
-    const fixtureDivs = document.querySelectorAll('[data-fixture-id]');
-
-    fixtureDivs.forEach(div => {
-        const fixtureId = div.getAttribute('data-fixture-id');
-        const h = document.getElementById(`home-${fixtureId}`).value;
-        const a = document.getElementById(`away-${fixtureId}`).value;
-
+    if (!currentUser) return;
+    
+    const predictions = [];
+    document.querySelectorAll('[data-fixture-id]').forEach(div => {
+        const id = div.getAttribute('data-fixture-id');
+        const h = document.getElementById(`home-${id}`).value;
+        const a = document.getElementById(`away-${id}`).value;
         if (h !== "" && a !== "") {
-            predictionRows.push({
-                uid: currentUser.id,
-                fixture_id: parseInt(fixtureId),
-                home_predicted: parseInt(h),
-                away_predicted: parseInt(a)
-            });
+            predictions.push({ uid: currentUser.id, fixture_id: parseInt(id), home_predicted: parseInt(h), away_predicted: parseInt(a) });
         }
     });
 
-    if (predictionRows.length === 0) {
-        alert("Enter at least one full score prediction.");
-        return;
-    }
+    if (predictions.length === 0) return alert("Please enter scores first.");
 
-    console.log("Attempting to save predictions:", predictionRows);
     submitBtn.textContent = "Saving...";
-    submitBtn.disabled = true;
-
-    const { error } = await sbClient.from('predictions').upsert(predictionRows, { onConflict: 'uid, fixture_id' });
+    const { error } = await sbClient.from('predictions').upsert(predictions, { onConflict: 'uid, fixture_id' });
 
     if (error) {
-        console.error("Submission error:", error);
-        alert("Save failed: " + error.message);
+        alert("Database Error: " + error.message + "\n\nTip: Check if RLS policies are enabled in Supabase.");
     } else {
-        alert("Predictions locked in successfully!");
+        alert("Success! Your predictions are locked in.");
     }
-
     submitBtn.textContent = "Lock In Predictions";
-    submitBtn.disabled = false;
 });
 
-function updateSubmitButtonState(isLoggedIn) {
-    if (isLoggedIn) {
+// --- AUTH ---
+function updateUI(session) {
+    currentUser = session ? session.user : null;
+    if (currentUser) {
+        loginBtn.textContent = 'Sign Out';
+        loginBtn.classList.replace('bg-blue-600', 'bg-red-600');
         submitBtn.disabled = false;
+        submitBtn.className = "w-full max-w-md bg-green-600 text-white font-bold py-4 rounded-xl shadow-lg";
         submitBtn.textContent = "Lock In Predictions";
-        submitBtn.className = "w-full max-w-md bg-green-600 text-white font-bold py-4 rounded-xl shadow-lg active:scale-95";
-        statusMsg.textContent = "Good luck with your picks!";
+        statusMsg.textContent = `Logged in as ${currentUser.email}`;
     } else {
+        loginBtn.textContent = 'Sign In';
+        loginBtn.classList.replace('bg-red-600', 'bg-blue-600');
         submitBtn.disabled = true;
+        submitBtn.className = "w-full max-w-md bg-gray-400 text-white font-bold py-4 rounded-xl opacity-50 cursor-not-allowed";
         submitBtn.textContent = "Sign In to Lock In Predictions";
-        submitBtn.className = "w-full max-w-md bg-gray-400 text-white font-bold py-4 rounded-xl shadow-lg opacity-50 cursor-not-allowed";
         statusMsg.textContent = "Sign in to start predicting.";
     }
-}
-
-// --- AUTH LOGIC ---
-
-function toggleModal(show) {
-    if (show) authModal.classList.remove('hidden');
-    else authModal.classList.add('hidden');
+    fetchFixtures();
 }
 
 toggleAuthModeBtn.addEventListener('click', () => {
@@ -125,40 +100,17 @@ toggleAuthModeBtn.addEventListener('click', () => {
     authSubmitBtn.textContent = isSignUpMode ? 'Sign Up' : 'Sign In';
 });
 
-closeModalBtn.addEventListener('click', () => toggleModal(false));
-
 authForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    authSubmitBtn.textContent = 'Processing...';
     const email = authEmail.value;
     const password = authPassword.value;
-
-    let result = isSignUpMode ? await sbClient.auth.signUp({ email, password }) : await sbClient.auth.signInWithPassword({ email, password });
-
-    if (result.error) {
-        alert("Auth Error: " + result.error.message);
-        authSubmitBtn.textContent = isSignUpMode ? 'Sign Up' : 'Sign In';
-    } else {
-        toggleModal(false);
-        authForm.reset();
-    }
+    const result = isSignUpMode ? await sbClient.auth.signUp({ email, password }) : await sbClient.auth.signInWithPassword({ email, password });
+    if (result.error) alert(result.error.message);
+    else { toggleModal(false); authForm.reset(); }
 });
 
-loginBtn.addEventListener('click', async () => {
-    if (currentUser) await sbClient.auth.signOut();
-    else toggleModal(true);
-});
+loginBtn.addEventListener('click', () => currentUser ? sbClient.auth.signOut() : toggleModal(true));
+closeModalBtn.addEventListener('click', () => toggleModal(false));
+function toggleModal(s) { s ? authModal.classList.remove('hidden') : authModal.classList.add('hidden'); }
 
-sbClient.auth.onAuthStateChange((event, session) => {
-    currentUser = session ? session.user : null;
-    if (currentUser) {
-        loginBtn.textContent = 'Sign Out';
-        loginBtn.classList.replace('bg-blue-600', 'bg-red-600');
-        updateSubmitButtonState(true);
-    } else {
-        loginBtn.textContent = 'Sign In';
-        loginBtn.classList.replace('bg-red-600', 'bg-blue-600');
-        updateSubmitButtonState(false);
-    }
-    fetchFixtures();
-});
+sbClient.auth.onAuthStateChange((event, session) => updateUI(session));
