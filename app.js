@@ -1,11 +1,11 @@
 // ==========================================
-// 1. SUPABASE INITIALIZATION
+// 1. CONFIGURATION
 // ==========================================
-const SUPABASE_URL = 'https://czzfljgkuawccuwuhywf.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN6emZsamdrdWF3Y2N1d3VoeXdmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI0NzEzNTAsImV4cCI6MjA4ODA0NzM1MH0.Ev_jTqHalcTwej5gOC155ttQZdO9J4CAmx6nA2dttAY';
+const PROJECT_URL = 'https://czzfljgkuawccuwuhywf.supabase.co';
+const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN6emZsamdrdWF3Y2N1d3VoeXdmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI0NzEzNTAsImV4cCI6MjA4ODA0NzM1MH0.Ev_jTqHalcTwej5gOC155ttQZdO9J4CAmx6nA2dttAY';
 
-// FIX: Renamed variable to 'supabaseClient' to avoid clashing with the CDN
-const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// IMPORTANT: We use 'sbClient' so it doesn't clash with the global 'supabase' object
+const sbClient = window.supabase.createClient(PROJECT_URL, ANON_KEY);
 
 // ==========================================
 // 2. DOM ELEMENTS
@@ -24,19 +24,14 @@ let isSignUpMode = false;
 let currentUser = null;
 
 // ==========================================
-// 3. AUTHENTICATION FUNCTIONS
+// 3. UI FUNCTIONS
 // ==========================================
 
-// Toggle Modal Visibility
 function toggleModal(show) {
-    if (show) {
-        authModal.classList.remove('hidden');
-    } else {
-        authModal.classList.add('hidden');
-    }
+    if (show) authModal.classList.remove('hidden');
+    else authModal.classList.add('hidden');
 }
 
-// Switch between Sign In and Sign Up UI
 toggleAuthModeBtn.addEventListener('click', () => {
     isSignUpMode = !isSignUpMode;
     authTitle.textContent = isSignUpMode ? 'Create Account' : 'Sign In';
@@ -44,83 +39,64 @@ toggleAuthModeBtn.addEventListener('click', () => {
     toggleAuthModeBtn.textContent = isSignUpMode ? 'Already have an account? Sign In' : 'Need an account? Sign Up';
 });
 
-// Handle Form Submission (Login or Signup)
+closeModalBtn.addEventListener('click', () => toggleModal(false));
+
+// ==========================================
+// 4. AUTHENTICATION LOGIC
+// ==========================================
+
 authForm.addEventListener('submit', async (e) => {
-    e.preventDefault(); // Prevent page reload
-    
+    e.preventDefault();
     const email = authEmail.value;
     const password = authPassword.value;
     authSubmitBtn.textContent = 'Processing...';
 
-    let error;
+    let result;
 
     if (isSignUpMode) {
-        // Create new user using the renamed client
-        const { data, error: signUpError } = await supabaseClient.auth.signUp({ 
-            email: email, 
-            password: password 
-        });
-        error = signUpError;
-        
-        // If successful, add them to our public 'users' table
-        if (!error && data.user) {
-            await supabaseClient.from('users').insert([{ 
-                uid: data.user.id, 
+        result = await sbClient.auth.signUp({ email, password });
+        if (!result.error && result.data.user) {
+            // Create the user profile in our custom table
+            await sbClient.from('users').insert([{ 
+                uid: result.data.user.id, 
                 display_name: email.split('@')[0] 
             }]);
         }
     } else {
-        // Log existing user in
-        const { error: signInError } = await supabaseClient.auth.signInWithPassword({ 
-            email: email, 
-            password: password 
-        });
-        error = signInError;
+        result = await sbClient.auth.signInWithPassword({ email, password });
     }
 
-    // Handle results
-    if (error) {
-        alert("Authentication Error: " + error.message);
+    if (result.error) {
+        alert("Error: " + result.error.message);
         authSubmitBtn.textContent = isSignUpMode ? 'Sign Up' : 'Sign In';
     } else {
-        toggleModal(false); // Success! Close modal.
-        authForm.reset();   // Clear the input fields
+        toggleModal(false);
+        authForm.reset();
     }
 });
 
-// Handle Top Right Navbar Button Click (Log Out or Open Modal)
 loginBtn.addEventListener('click', async () => {
     if (currentUser) {
-        // Log out
-        await supabaseClient.auth.signOut();
+        await sbClient.auth.signOut();
     } else {
-        // Open modal
         toggleModal(true);
     }
 });
 
-// Handle "Cancel" button in modal
-closeModalBtn.addEventListener('click', () => {
-    toggleModal(false);
-});
+// ==========================================
+// 5. OBSERVE AUTH STATE
+// ==========================================
 
-// ==========================================
-// 4. AUTH STATE LISTENER
-// ==========================================
-supabaseClient.auth.onAuthStateChange((event, session) => {
+sbClient.auth.onAuthStateChange((event, session) => {
     if (session) {
-        // User just logged in
         currentUser = session.user;
         loginBtn.textContent = 'Sign Out';
-        loginBtn.classList.remove('bg-blue-600', 'hover:bg-blue-500');
-        loginBtn.classList.add('bg-red-600', 'hover:bg-red-500');
-        console.log("Logged in as:", currentUser.email);
+        loginBtn.classList.replace('bg-blue-600', 'bg-red-600');
+        console.log("Logged in:", currentUser.email);
     } else {
-        // User just logged out
         currentUser = null;
         loginBtn.textContent = 'Sign In';
-        loginBtn.classList.remove('bg-red-600', 'hover:bg-red-500');
-        loginBtn.classList.add('bg-blue-600', 'hover:bg-blue-500');
-        console.log("User is logged out.");
+        loginBtn.classList.replace('bg-red-600', 'bg-blue-600');
+        console.log("Logged out.");
     }
 });
