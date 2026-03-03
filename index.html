@@ -15,16 +15,42 @@
     </nav>
 
     <main class="max-w-md mx-auto mt-6 p-4 pb-32">
-        <header class="text-center mb-8">
-            <h2 class="text-2xl font-extrabold mb-2 text-blue-900">Live Fixtures</h2>
-            <p id="user-status-msg" class="text-sm text-gray-600 font-medium italic">Checking login status...</p>
-        </header>
-
-        <div id="fixtures-container" class="space-y-6">
-            <p class="text-center text-gray-500 italic text-sm">Loading matches...</p>
+        <div class="flex border-b border-gray-200 mb-6">
+            <button id="tab-fixtures" class="flex-1 py-2 font-bold border-b-2 border-blue-900 text-blue-900">Fixtures</button>
+            <button id="tab-leaderboard" class="flex-1 py-2 font-bold border-b-2 border-transparent text-gray-400 hover:text-blue-900">Leaderboard</button>
         </div>
 
-        <div class="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-200 flex justify-center shadow-lg">
+        <section id="section-fixtures">
+            <header class="text-center mb-8">
+                <h2 class="text-2xl font-extrabold mb-2 text-blue-900">Live Fixtures</h2>
+                <p id="user-status-msg" class="text-sm text-gray-600 font-medium italic">Checking login status...</p>
+            </header>
+            <div id="fixtures-container" class="space-y-6">
+                <p class="text-center text-gray-500 italic text-sm">Loading matches...</p>
+            </div>
+        </section>
+
+        <section id="section-leaderboard" class="hidden">
+            <header class="text-center mb-8">
+                <h2 class="text-2xl font-extrabold mb-2 text-blue-900">Global Leaderboard</h2>
+                <p class="text-sm text-gray-600 font-medium italic">Top predictors this season.</p>
+            </header>
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                <table class="w-full text-left">
+                    <thead class="bg-gray-50 border-b border-gray-200 text-xs font-bold text-gray-400 uppercase">
+                        <tr>
+                            <th class="px-4 py-3">Rank</th>
+                            <th class="px-4 py-3">User</th>
+                            <th class="px-4 py-3 text-right">Pts</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leaderboard-body">
+                        </tbody>
+                </table>
+            </div>
+        </section>
+
+        <div id="sticky-footer" class="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-200 flex justify-center shadow-lg">
             <button id="submit-predictions-btn" disabled class="w-full max-w-md bg-gray-400 text-white font-bold py-4 rounded-xl opacity-50 cursor-not-allowed">
                 Sign In to Lock In Predictions
             </button>
@@ -44,6 +70,6 @@
         </div>
     </div>
 
-    <script src="app.js?v=1.0.7"></script>
+    <script src="app.js?v=1.0.8"></script>
 </body>
 </html>
