@@ -12,6 +12,8 @@ const elements = {
     submitBtn: document.getElementById('submit-predictions-btn'),
     leaderboard: document.getElementById('leaderboard-body'),
     status: document.getElementById('user-status-msg'),
+    syncBtn: document.getElementById('sync-api-btn'),
+    apiKeyInput: document.getElementById('api-key-input'),
     tabs: { fix: document.getElementById('tab-fixtures'), lead: document.getElementById('tab-leaderboard'), adm: document.getElementById('tab-admin') },
     sections: { fix: document.getElementById('section-fixtures'), lead: document.getElementById('section-leaderboard'), adm: document.getElementById('section-admin') }
 };
@@ -20,7 +22,7 @@ let currentUser = null;
 let isSignUpMode = false;
 let hasExistingPredictions = false;
 
-// --- UTILS (Badges) ---
+// --- UTILS ---
 function getBadge(pred, actual) {
     if (!pred || actual.h === null) return '';
     const exact = pred.h === actual.h && pred.a === actual.a;
@@ -30,14 +32,12 @@ function getBadge(pred, actual) {
     return '<span class="stamp-fade absolute -top-2 -right-2 bg-gray-400 text-white text-[8px] font-black px-2 py-1 rounded-lg shadow-lg rotate-12 z-10 border-2 border-white uppercase tracking-tighter">No Points</span>';
 }
 
-// --- TABS ---
 function switchTab(target) {
     Object.values(elements.sections).forEach(s => s.classList.add('hidden'));
     Object.values(elements.tabs).forEach(t => t.classList.remove('border-blue-900', 'text-blue-900'));
     document.getElementById('sticky-footer').style.transform = target === 'fix' ? 'translateY(0)' : 'translateY(150%)';
     elements.sections[target].classList.remove('hidden');
     elements.tabs[target].classList.add('border-blue-900', 'text-blue-900');
-    
     if (target === 'fix') fetchFixtures();
     if (target === 'lead') fetchLeaderboard();
     if (target === 'adm') fetchAdminFixtures();
@@ -68,8 +68,8 @@ async function fetchFixtures() {
         <div class="relative bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mb-4 transition-all" data-id="${f.fixture_id}">
             ${badge}
             <div class="flex justify-between items-center text-[9px] font-black text-gray-300 uppercase tracking-widest mb-4">
-                <span>${new Date(f.kickoff_time).toLocaleDateString()}</span>
-                <span class="${isLocked ? 'text-red-500' : 'text-blue-500'}">${f.status === 'finished' ? 'Final Score' : 'Upcoming'}</span>
+                <span>${new Date(f.kickoff_time).toLocaleDateString('en-GB', {day: '2-digit', month: 'short', hour: '2-digit', minute:'2-digit'})}</span>
+                <span class="${isLocked ? 'text-red-500' : 'text-blue-500'}">${isLocked ? 'Final Score' : 'Upcoming'}</span>
             </div>
             <div class="flex items-center justify-between gap-4">
                 <div class="flex-1 text-right font-black text-sm text-blue-900 truncate">${f.home_team}</div>
@@ -107,35 +107,74 @@ elements.submitBtn.onclick = async () => {
         const id = div.dataset.id;
         const h = document.getElementById(`h-${id}`).value;
         const a = document.getElementById(`a-${id}`).value;
-        if (h !== "" && a !== "") preds.push({ uid: currentUser.id, fixture_id: id, home_predicted: parseInt(h), away_predicted: parseInt(a) });
+        if (h !== "" && a !== "") preds.push({ uid: currentUser.id, fixture_id: parseInt(id), home_predicted: parseInt(h), away_predicted: parseInt(a) });
     });
 
     if (preds.length === 0) return alert("Enter scores first!");
-    
     elements.submitBtn.textContent = "Processing...";
     const { error } = await sbClient.from('predictions').upsert(preds, { onConflict: 'uid, fixture_id' });
+    if (error) alert("Error saving: " + error.message);
+    else { alert("Scores Saved!"); fetchFixtures(); }
+};
+
+// ==========================================
+// API INTEGRATION (FOOTBALL-DATA.ORG)
+// ==========================================
+elements.syncBtn.onclick = async () => {
+    const apiKey = elements.apiKeyInput.value.trim();
+    if (!apiKey) return alert("Please paste your API key first.");
     
-    if (error) {
-        alert("Error saving: " + error.message);
-    } else {
-        alert("Scores Saved Successfully!");
-        fetchFixtures(); // Refreshes UI and sets button back to "Amend Predictions"
+    elements.syncBtn.textContent = "Fetching from API...";
+    elements.syncBtn.disabled = true;
+
+    try {
+        // Using a reliable CORS proxy to bypass browser restrictions for the free tier
+        const targetUrl = 'https://api.football-data.org/v4/competitions/PL/matches?status=SCHEDULED';
+        const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
+
+        const response = await fetch(proxyUrl, {
+            headers: { 'X-Auth-Token': apiKey }
+        });
+
+        if (!response.ok) throw new Error("API Error: Check your token or rate limits.");
+        
+        const data = await response.json();
+        
+        // Transform API data to match our Supabase schema
+        const fixturesToInsert = data.matches.map(match => ({
+            fixture_id: match.id,
+            api_id: match.id,
+            sport: 'EPL',
+            home_team: match.homeTeam.shortName || match.homeTeam.name,
+            away_team: match.awayTeam.shortName || match.awayTeam.name,
+            kickoff_time: match.utcDate,
+            status: 'upcoming'
+        }));
+
+        if (fixturesToInsert.length === 0) {
+            alert("No upcoming scheduled matches found in the API right now.");
+            elements.syncBtn.textContent = "Fetch & Sync EPL Fixtures";
+            elements.syncBtn.disabled = false;
+            return;
+        }
+
+        // Upsert into Supabase (creates new, ignores existing)
+        const { error } = await sbClient.from('fixtures').upsert(fixturesToInsert, { onConflict: 'fixture_id' });
+        
+        if (error) throw new Error("Database Error: " + error.message);
+
+        alert(`Success! Imported ${fixturesToInsert.length} matches into the database.`);
+        fetchAdminFixtures(); // Refresh Admin UI
+        
+    } catch (err) {
+        alert(err.message);
     }
+
+    elements.syncBtn.textContent = "Fetch & Sync EPL Fixtures";
+    elements.syncBtn.disabled = false;
 };
 
 // --- LEADERBOARD & ADMIN ---
-async function fetchLeaderboard() {
-    elements.leaderboard.innerHTML = '<tr><td colspan="3" class="text-center p-4 text-gray-400">Loading ranks...</td></tr>';
-    const { data } = await sbClient.from('users').select('*').order('total_points', { ascending: false }).order('exact_scores', { ascending: false });
-    elements.leaderboard.innerHTML = data?.map((u, i) => `
-        <tr class="hover:bg-gray-50 transition-colors">
-            <td class="px-6 py-5 text-gray-300 font-black text-sm italic">#${i+1}</td>
-            <td class="px-6 py-5 font-bold text-blue-900">${u.first_name ? u.first_name + ' ' + (u.last_name || '') : u.display_name.split('@')[0]}</td>
-            <td class="px-6 py-5 text-right font-black text-blue-600 text-lg">${u.total_points || 0}</td>
-        </tr>
-    `).join('') || '<tr><td colspan="3" class="text-center p-4">No data yet.</td></tr>';
-}
-
 async function fetchAdminFixtures() {
     const { data } = await sbClient.from('fixtures').select('*').order('kickoff_time', { ascending: true });
     elements.adminFixtures.innerHTML = data?.map(f => `
@@ -154,55 +193,49 @@ window.updateMatchResult = async (id) => {
     const h = parseInt(document.getElementById(`adm-h-${id}`).value);
     const a = parseInt(document.getElementById(`adm-a-${id}`).value);
     if (isNaN(h) || isNaN(a)) return alert("Please enter valid scores.");
-    
     const { error } = await sbClient.rpc('calculate_fixture_points', { target_fixture_id: id, final_home: h, final_away: a });
     alert(error ? error.message : "Match Result Processed & Points Awarded!");
     fetchAdminFixtures();
 };
 
+async function fetchLeaderboard() {
+    const { data } = await sbClient.from('users').select('*').order('total_points', { ascending: false }).order('exact_scores', { ascending: false });
+    elements.leaderboard.innerHTML = data?.map((u, i) => `
+        <tr class="hover:bg-gray-50 transition-colors">
+            <td class="px-6 py-5 text-gray-300 font-black text-sm italic">#${i+1}</td>
+            <td class="px-6 py-5 font-bold text-blue-900">${u.first_name ? u.first_name + ' ' + (u.last_name || '') : u.display_name.split('@')[0]}</td>
+            <td class="px-6 py-5 text-right font-black text-blue-600 text-lg">${u.total_points || 0}</td>
+        </tr>
+    `).join('') || '';
+}
+
 // --- AUTHENTICATION ---
 elements.loginBtn.onclick = () => currentUser ? sbClient.auth.signOut() : elements.authModal.classList.remove('hidden');
 document.getElementById('close-modal-btn').onclick = () => elements.authModal.classList.add('hidden');
-
 document.getElementById('toggle-auth-mode').onclick = () => {
     isSignUpMode = !isSignUpMode;
     elements.signupFields.classList.toggle('hidden', !isSignUpMode);
     document.getElementById('auth-title').textContent = isSignUpMode ? 'Join The Club' : 'Welcome Back';
     document.getElementById('auth-submit-btn').textContent = isSignUpMode ? 'Create Account' : 'Sign In';
-    document.getElementById('toggle-auth-mode').textContent = isSignUpMode ? 'Already have an account? Sign In' : 'New? Create Account';
 };
-
 elements.authForm.onsubmit = async (e) => {
     e.preventDefault();
     const email = document.getElementById('auth-email').value;
     const password = document.getElementById('auth-password').value;
-    
-    let result;
-    if (isSignUpMode) {
-        result = await sbClient.auth.signUp({ email, password });
-        if (!result.error) {
-            // Wait 1 second to ensure the SQL trigger has created the base user row first
-            setTimeout(async () => {
-                await sbClient.from('users').update({
-                    first_name: document.getElementById('auth-first-name').value,
-                    last_name: document.getElementById('auth-last-name').value,
-                    fav_team: document.getElementById('auth-fav-team').value,
-                    fav_sport: document.getElementById('auth-fav-sport').value
-                }).eq('uid', result.data.user.id);
-            }, 1000);
-        }
-    } else {
-        result = await sbClient.auth.signInWithPassword({ email, password });
+    let result = isSignUpMode ? await sbClient.auth.signUp({ email, password }) : await sbClient.auth.signInWithPassword({ email, password });
+    if (!result.error && isSignUpMode) {
+        setTimeout(async () => {
+            await sbClient.from('users').update({
+                first_name: document.getElementById('auth-first-name').value,
+                last_name: document.getElementById('auth-last-name').value,
+                fav_team: document.getElementById('auth-fav-team').value,
+                fav_sport: document.getElementById('auth-fav-sport').value
+            }).eq('uid', result.data.user.id);
+        }, 1000);
     }
-
-    if (result.error) alert(result.error.message); 
-    else {
-        elements.authModal.classList.add('hidden');
-        elements.authForm.reset();
-    }
+    if (result.error) alert(result.error.message); else elements.authModal.classList.add('hidden');
 };
 
-// Listen for Auth changes
 sbClient.auth.onAuthStateChange((_, session) => {
     currentUser = session?.user || null;
     elements.loginBtn.textContent = currentUser ? 'Log Out' : 'Sign In';
