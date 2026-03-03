@@ -18,11 +18,22 @@ const elements = {
 let currentUser = null;
 let isSignUpMode = false;
 
+// --- UTILS ---
+function getBadge(pred, actual) {
+    if (!pred || actual.h === null) return '';
+    const exact = pred.h === actual.h && pred.a === actual.a;
+    const res = (pred.h > pred.a && actual.h > actual.a) || (pred.h < pred.a && actual.h < actual.a) || (pred.h === pred.a && actual.h === actual.a);
+    
+    if (exact) return '<span class="stamp-fade absolute -top-2 -right-2 bg-green-500 text-white text-[8px] font-black px-2 py-1 rounded-lg shadow-lg rotate-12 z-10 border-2 border-white uppercase">Correct Score +3</span>';
+    if (res) return '<span class="stamp-fade absolute -top-2 -right-2 bg-blue-500 text-white text-[8px] font-black px-2 py-1 rounded-lg shadow-lg rotate-12 z-10 border-2 border-white uppercase">Correct Result +1</span>';
+    return '<span class="stamp-fade absolute -top-2 -right-2 bg-gray-400 text-white text-[8px] font-black px-2 py-1 rounded-lg shadow-lg rotate-12 z-10 border-2 border-white uppercase">No Points</span>';
+}
+
 // --- TABS ---
 function switchTab(target) {
     Object.values(elements.sections).forEach(s => s.classList.add('hidden'));
     Object.values(elements.tabs).forEach(t => t.classList.remove('border-blue-900', 'text-blue-900'));
-    document.getElementById('sticky-footer').classList.toggle('hidden', target !== 'fix');
+    document.getElementById('sticky-footer').style.transform = target === 'fix' ? 'translateY(0)' : 'translateY(100%)';
     elements.sections[target].classList.remove('hidden');
     elements.tabs[target].classList.add('border-blue-900', 'text-blue-900');
     if (target === 'fix') fetchFixtures();
@@ -33,14 +44,9 @@ elements.tabs.fix.onclick = () => switchTab('fix');
 elements.tabs.lead.onclick = () => switchTab('lead');
 elements.tabs.adm.onclick = () => switchTab('adm');
 
-// --- FIXTURES (Now remembers your scores) ---
+// --- FIXTURES ---
 async function fetchFixtures() {
-    elements.status.textContent = currentUser ? "Loading your scores..." : "Sign in to predict.";
-    
-    // 1. Fetch Fixtures
     const { data: fixtures } = await sbClient.from('fixtures').select('*').order('kickoff_time', { ascending: true });
-    
-    // 2. Fetch User's Predictions if logged in
     let userPreds = [];
     if (currentUser) {
         const { data: preds } = await sbClient.from('predictions').select('*').eq('uid', currentUser.id);
@@ -48,52 +54,48 @@ async function fetchFixtures() {
     }
 
     elements.fixtures.innerHTML = fixtures?.map(f => {
-        const pred = userPreds.find(p => p.fixture_id === f.fixture_id);
-        const hVal = pred ? pred.home_predicted : "";
-        const aVal = pred ? pred.away_predicted : "";
+        const p = userPreds.find(p => p.fixture_id === f.fixture_id);
+        const badge = getBadge(p ? {h: p.home_predicted, a: p.away_predicted} : null, {h: f.home_score_actual, a: f.away_score_actual});
+        const isLocked = f.status === 'finished';
 
         return `
-        <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-4" data-id="${f.fixture_id}">
-            <div class="flex justify-between text-[10px] font-bold text-gray-400 uppercase mb-2">
-                <span>${new Date(f.kickoff_time).toLocaleDateString()}</span>
-                <span>${f.status === 'finished' ? 'Result' : 'Upcoming'}</span>
+        <div class="relative bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mb-4 transition-all hover:shadow-md">
+            ${badge}
+            <div class="flex justify-between items-center text-[9px] font-black text-gray-300 uppercase tracking-widest mb-4">
+                <span>${new Date(f.kickoff_time).toLocaleDateString('en-GB', {day: '2-digit', month: 'short', year: 'numeric'})}</span>
+                <span class="${isLocked ? 'text-red-500' : 'text-blue-500'}">${f.status === 'finished' ? 'FT Result' : 'Upcoming'}</span>
             </div>
-            <div class="flex items-center justify-between">
-                <div class="flex-1 text-right font-bold">${f.home_team}</div>
-                <div class="flex gap-1 mx-2">
-                    <input type="number" min="0" id="h-${f.fixture_id}" value="${hVal}" class="w-10 h-10 text-center border-2 border-gray-100 rounded-lg font-bold" placeholder="-">
-                    <input type="number" id="a-${f.fixture_id}" value="${aVal}" class="w-10 h-10 text-center border-2 border-gray-100 rounded-lg font-bold" placeholder="-">
+            <div class="flex items-center justify-between gap-4">
+                <div class="flex-1 text-right font-black text-sm text-blue-900 truncate">${f.home_team}</div>
+                <div class="flex gap-2">
+                    <input type="number" min="0" id="h-${f.fixture_id}" value="${p ? p.home_predicted : ''}" ${isLocked ? 'disabled' : ''} class="w-12 h-12 text-center bg-gray-50 border-2 border-gray-100 rounded-xl font-black text-lg focus:border-blue-500 focus:outline-none transition-colors ${isLocked ? 'opacity-50' : ''}" placeholder="-">
+                    <input type="number" min="0" id="a-${f.fixture_id}" value="${p ? p.away_predicted : ''}" ${isLocked ? 'disabled' : ''} class="w-12 h-12 text-center bg-gray-50 border-2 border-gray-100 rounded-xl font-black text-lg focus:border-blue-500 focus:outline-none transition-colors ${isLocked ? 'opacity-50' : ''}" placeholder="-">
                 </div>
-                <div class="flex-1 text-left font-bold">${f.away_team}</div>
+                <div class="flex-1 text-left font-black text-sm text-blue-900 truncate">${f.away_team}</div>
             </div>
+            ${isLocked ? `<div class="mt-4 pt-4 border-t border-gray-50 text-center text-[10px] font-bold text-gray-400">Actual Score: <span class="text-blue-900">${f.home_score_actual} - ${f.away_score_actual}</span></div>` : ''}
         </div>`;
-    }).join('') || '<p>No matches.</p>';
+    }).join('') || '<p class="text-center py-10 text-gray-400">No matches found.</p>';
     
-    if (currentUser) elements.status.textContent = "Your scores are loaded.";
+    elements.status.textContent = currentUser ? `Good luck, ${currentUser.email.split('@')[0]}!` : "Sign in to save your picks.";
 }
 
-// --- SUBMISSION (With minus-score blocking) ---
+// --- SUBMISSION ---
 elements.submitBtn.onclick = async () => {
     const preds = [];
-    let hasNegative = false;
-    
     document.querySelectorAll('[data-id]').forEach(div => {
         const id = div.dataset.id;
         const h = document.getElementById(`h-${id}`).value;
         const a = document.getElementById(`a-${id}`).value;
-        if (h !== "" && a !== "") {
-            if (parseInt(h) < 0 || parseInt(a) < 0) hasNegative = true;
-            preds.push({ uid: currentUser.id, fixture_id: id, home_predicted: parseInt(h), away_predicted: parseInt(a) });
-        }
+        if (h !== "" && a !== "") preds.push({ uid: currentUser.id, fixture_id: id, home_predicted: parseInt(h), away_predicted: parseInt(a) });
     });
 
-    if (hasNegative) return alert("Negative scores are not allowed!");
     if (preds.length === 0) return alert("Enter some scores first!");
-
-    elements.submitBtn.textContent = "Saving...";
+    elements.submitBtn.textContent = "Locking...";
     const { error } = await sbClient.from('predictions').upsert(preds, { onConflict: 'uid, fixture_id' });
-    alert(error ? error.message : "Locked In!");
+    alert(error ? error.message : "Scores Locked In!");
     elements.submitBtn.textContent = "Lock In Predictions";
+    fetchFixtures();
 };
 
 // --- ADMIN & LEADERBOARD ---
@@ -101,20 +103,20 @@ window.updateMatchResult = async (id) => {
     const h = parseInt(document.getElementById(`adm-h-${id}`).value);
     const a = parseInt(document.getElementById(`adm-a-${id}`).value);
     const { error } = await sbClient.rpc('calculate_fixture_points', { target_fixture_id: id, final_home: h, final_away: a });
-    alert(error ? error.message : "Points Calculated!");
+    alert(error ? error.message : "Match Result Processed!");
     fetchAdminFixtures();
 };
 
 async function fetchAdminFixtures() {
     const { data } = await sbClient.from('fixtures').select('*').order('kickoff_time', { ascending: true });
     elements.adminFixtures.innerHTML = data?.map(f => `
-        <div class="bg-white p-3 rounded-lg border border-gray-200 flex items-center justify-between gap-2">
-            <span class="text-xs font-bold w-24 truncate">${f.home_team} v ${f.away_team}</span>
+        <div class="bg-white p-4 rounded-xl border border-gray-100 flex items-center justify-between shadow-sm">
+            <span class="text-xs font-black text-blue-900 w-32 truncate">${f.home_team} v ${f.away_team}</span>
             <div class="flex gap-1">
-                <input type="number" id="adm-h-${f.fixture_id}" class="w-8 h-8 text-center border rounded text-sm" value="${f.home_score_actual || 0}">
-                <input type="number" id="adm-a-${f.fixture_id}" class="w-8 h-8 text-center border rounded text-sm" value="${f.away_score_actual || 0}">
+                <input type="number" id="adm-h-${f.fixture_id}" class="w-10 h-10 text-center bg-gray-50 border rounded-lg font-bold" value="${f.home_score_actual || 0}">
+                <input type="number" id="adm-a-${f.fixture_id}" class="w-10 h-10 text-center bg-gray-50 border rounded-lg font-bold" value="${f.away_score_actual || 0}">
             </div>
-            <button onclick="updateMatchResult(${f.fixture_id})" class="bg-red-600 text-white px-2 py-1 rounded text-[10px] font-bold">Update</button>
+            <button onclick="updateMatchResult(${f.fixture_id})" class="bg-blue-900 text-white px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest shadow-lg">Update</button>
         </div>
     `).join('') || '';
 }
@@ -122,19 +124,20 @@ async function fetchAdminFixtures() {
 async function fetchLeaderboard() {
     const { data } = await sbClient.from('users').select('*').order('total_points', { ascending: false }).order('exact_scores', { ascending: false });
     elements.leaderboard.innerHTML = data?.map((u, i) => `
-        <tr class="border-b border-gray-50"><td class="px-4 py-4 text-gray-400 font-bold">#${i+1}</td>
-        <td class="px-4 py-4 font-semibold">${u.display_name.split('@')[0]}</td>
-        <td class="px-4 py-4 text-right font-black text-blue-900">${u.total_points}</td></tr>
+        <tr class="hover:bg-gray-50 transition-colors">
+            <td class="px-6 py-5 text-gray-300 font-black text-sm italic">#${i+1}</td>
+            <td class="px-6 py-5 font-bold text-blue-900">${u.display_name.split('@')[0]}</td>
+            <td class="px-6 py-5 text-right font-black text-blue-600 text-lg">${u.total_points}</td>
+        </tr>
     `).join('') || '';
 }
 
 // --- AUTH ---
 sbClient.auth.onAuthStateChange((_, session) => {
     currentUser = session?.user || null;
-    elements.loginBtn.textContent = currentUser ? 'Sign Out' : 'Sign In';
-    elements.loginBtn.className = currentUser ? "bg-red-600 px-4 py-2 rounded text-sm font-semibold text-white" : "bg-blue-600 px-4 py-2 rounded text-sm font-semibold text-white";
+    elements.loginBtn.textContent = currentUser ? 'Log Out' : 'Sign In';
     elements.submitBtn.disabled = !currentUser;
-    elements.submitBtn.className = currentUser ? "w-full max-w-md bg-green-600 text-white font-bold py-4 rounded-xl shadow-lg" : "w-full max-w-md bg-gray-400 text-white font-bold py-4 rounded-xl opacity-50";
+    elements.submitBtn.className = currentUser ? "w-full max-w-md bg-blue-900 text-white font-black py-4 rounded-2xl shadow-xl active:scale-95 transition-all" : "w-full max-w-md bg-gray-400 text-white font-bold py-4 rounded-2xl opacity-50";
     fetchFixtures();
 });
 
@@ -142,8 +145,8 @@ elements.loginBtn.onclick = () => currentUser ? sbClient.auth.signOut() : elemen
 document.getElementById('close-modal-btn').onclick = () => elements.authModal.classList.add('hidden');
 document.getElementById('toggle-auth-mode').onclick = () => {
     isSignUpMode = !isSignUpMode;
-    document.getElementById('auth-title').textContent = isSignUpMode ? 'Sign Up' : 'Sign In';
-    document.getElementById('auth-submit-btn').textContent = isSignUpMode ? 'Sign Up' : 'Sign In';
+    document.getElementById('auth-title').textContent = isSignUpMode ? 'Join The Club' : 'Welcome Back';
+    document.getElementById('auth-submit-btn').textContent = isSignUpMode ? 'Create Account' : 'Sign In';
 };
 elements.authForm.onsubmit = async (e) => {
     e.preventDefault();

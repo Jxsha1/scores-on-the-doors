@@ -6,6 +6,11 @@
     <title>Scores on the Doors</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        /* Custom Badge Animation */
+        .stamp-fade { animation: fadeIn 0.5s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
+    </style>
 </head>
 <body class="bg-gray-100 text-gray-900 font-sans antialiased">
 
@@ -15,24 +20,24 @@
     </nav>
 
     <main class="max-w-md mx-auto mt-6 p-4 pb-32">
-        <div class="flex border-b border-gray-200 mb-6 overflow-x-auto">
-            <button id="tab-fixtures" class="flex-1 py-2 font-bold border-b-2 border-blue-900 text-blue-900 px-4">Fixtures</button>
-            <button id="tab-leaderboard" class="flex-1 py-2 font-bold border-b-2 border-transparent text-gray-400 hover:text-blue-900 px-4">Leaderboard</button>
-            <button id="tab-admin" class="flex-1 py-2 font-bold border-b-2 border-transparent text-red-500 hover:text-red-700 px-4">Admin</button>
+        <div class="flex border-b border-gray-200 mb-6 sticky top-0 bg-gray-100 z-10">
+            <button id="tab-fixtures" class="flex-1 py-3 font-bold border-b-2 border-blue-900 text-blue-900">Fixtures</button>
+            <button id="tab-leaderboard" class="flex-1 py-3 font-bold border-b-2 border-transparent text-gray-400 hover:text-blue-900">Leaderboard</button>
+            <button id="tab-admin" class="flex-1 py-3 font-bold border-b-2 border-transparent text-red-500 hover:text-red-700">Admin</button>
         </div>
 
         <section id="section-fixtures">
-            <p id="user-status-msg" class="text-center text-sm text-gray-600 mb-4 italic">Loading matches...</p>
+            <p id="user-status-msg" class="text-center text-sm text-gray-500 mb-4 italic">Loading matches...</p>
             <div id="fixtures-container" class="space-y-6"></div>
         </section>
 
         <section id="section-leaderboard" class="hidden">
-            <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
                 <table class="w-full text-left">
-                    <thead class="bg-gray-50 text-xs font-bold text-gray-400 uppercase">
-                        <tr><th class="px-4 py-3">Rank</th><th class="px-4 py-3">User</th><th class="px-4 py-3 text-right">Pts</th></tr>
+                    <thead class="bg-gray-50 text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                        <tr><th class="px-6 py-4">Rank</th><th class="px-6 py-4">User</th><th class="px-6 py-4 text-right">Pts</th></tr>
                     </thead>
-                    <tbody id="leaderboard-body"></tbody>
+                    <tbody id="leaderboard-body" class="divide-y divide-gray-100"></tbody>
                 </table>
             </div>
         </section>
@@ -41,26 +46,26 @@
             <div id="admin-fixtures-container" class="space-y-4"></div>
         </section>
 
-        <div id="sticky-footer" class="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-200 flex justify-center shadow-lg">
-            <button id="submit-predictions-btn" disabled class="w-full max-w-md bg-gray-400 text-white font-bold py-4 rounded-xl opacity-50 cursor-not-allowed">
+        <div id="sticky-footer" class="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-200 flex justify-center shadow-lg transition-transform duration-300">
+            <button id="submit-predictions-btn" disabled class="w-full max-w-md bg-gray-400 text-white font-bold py-4 rounded-2xl opacity-50 cursor-not-allowed">
                 Sign In to Lock In Predictions
             </button>
         </div>
     </main>
 
-    <div id="auth-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-        <div class="bg-white p-8 rounded-2xl shadow-2xl w-80">
-            <h3 class="text-2xl font-bold mb-4 text-center text-blue-900" id="auth-title">Sign In</h3>
+    <div id="auth-modal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center items-center z-50">
+        <div class="bg-white p-8 rounded-3xl shadow-2xl w-80">
+            <h3 class="text-2xl font-black mb-6 text-center text-blue-900" id="auth-title">Welcome Back</h3>
             <form id="auth-form" class="space-y-4">
-                <input type="email" id="auth-email" placeholder="Email" class="w-full px-4 py-3 border border-gray-200 rounded-lg outline-none" required>
-                <input type="password" id="auth-password" placeholder="Password" class="w-full px-4 py-3 border border-gray-200 rounded-lg outline-none" required>
-                <button type="submit" id="auth-submit-btn" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-lg transition">Sign In</button>
+                <input type="email" id="auth-email" placeholder="Email" class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500" required>
+                <input type="password" id="auth-password" placeholder="Password" class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500" required>
+                <button type="submit" id="auth-submit-btn" class="w-full bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-700 transition">Sign In</button>
             </form>
-            <button id="toggle-auth-mode" class="mt-4 text-blue-600 text-sm hover:underline w-full text-center">New here? Sign Up</button>
-            <button id="close-modal-btn" class="mt-2 w-full text-gray-400 text-xs text-center">Close</button>
+            <button id="toggle-auth-mode" class="mt-6 text-blue-600 text-xs font-bold uppercase tracking-widest w-full text-center">New? Create Account</button>
+            <button id="close-modal-btn" class="mt-4 w-full text-gray-400 text-xs text-center uppercase tracking-widest font-bold">Close</button>
         </div>
     </div>
 
-    <script src="app.js?v=1.1.0"></script>
+    <script src="app.js?v=1.1.1"></script>
 </body>
 </html>
