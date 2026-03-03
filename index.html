@@ -15,7 +15,7 @@
 
     <nav class="bg-blue-900 text-white p-4 shadow-md flex justify-between items-center">
         <div class="flex items-center gap-3">
-            <img src="https://via.placeholder.com/40" alt="Logo" class="w-10 h-10 rounded-full bg-white p-1">
+            <img src="SOTD_Logo.png" alt="SOTD Logo" class="w-10 h-10 rounded-full bg-white p-1 object-contain shadow-sm">
             <h1 class="text-xl font-bold tracking-tight">Scores on the Doors</h1>
         </div>
         <button id="login-btn" class="bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded text-sm font-semibold transition text-white">Sign In</button>
@@ -24,8 +24,8 @@
     <main class="max-w-md mx-auto mt-6 p-4 pb-32">
         <div class="flex border-b border-gray-200 mb-6 sticky top-0 bg-gray-100 z-10">
             <button id="tab-fixtures" class="flex-1 py-3 font-bold border-b-2 border-blue-900 text-blue-900">Fixtures</button>
-            <button id="tab-leaderboard" class="flex-1 py-3 font-bold border-b-2 border-transparent text-gray-400">Leaderboard</button>
-            <button id="tab-admin" class="flex-1 py-3 font-bold border-b-2 border-transparent text-red-500">Admin</button>
+            <button id="tab-leaderboard" class="flex-1 py-3 font-bold border-b-2 border-transparent text-gray-400 hover:text-blue-900">Leaderboard</button>
+            <button id="tab-admin" class="flex-1 py-3 font-bold border-b-2 border-transparent text-red-500 hover:text-red-700">Admin</button>
         </div>
 
         <section id="section-fixtures">
@@ -34,15 +34,26 @@
         </section>
 
         <section id="section-leaderboard" class="hidden">
-            <div id="leaderboard-container"></div>
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                <table class="w-full text-left">
+                    <thead class="bg-gray-50 text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                        <tr><th class="px-6 py-4">Rank</th><th class="px-6 py-4">User</th><th class="px-6 py-4 text-right">Pts</th></tr>
+                    </thead>
+                    <tbody id="leaderboard-body" class="divide-y divide-gray-100"></tbody>
+                </table>
+            </div>
         </section>
 
         <section id="section-admin" class="hidden">
+            <div class="bg-red-50 p-4 rounded-xl border border-red-200 mb-6 shadow-sm">
+                <h3 class="font-bold text-red-800 mb-1 text-sm">Manual Score Entry</h3>
+                <p class="text-xs text-red-600">Enter real match results here to calculate everyone's points.</p>
+            </div>
             <div id="admin-fixtures-container" class="space-y-4"></div>
         </section>
 
-        <div id="sticky-footer" class="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-200 flex justify-center shadow-lg">
-            <button id="submit-predictions-btn" disabled class="w-full max-w-md bg-gray-400 text-white font-bold py-4 rounded-2xl opacity-50 cursor-not-allowed">
+        <div id="sticky-footer" class="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-200 flex justify-center shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] transition-transform duration-300">
+            <button id="submit-predictions-btn" disabled class="w-full max-w-md bg-gray-400 text-white font-bold py-4 rounded-2xl opacity-50 cursor-not-allowed transition-all">
                 Checking Status...
             </button>
         </div>
@@ -55,11 +66,11 @@
             <form id="auth-form" class="space-y-3">
                 <div id="signup-fields" class="hidden space-y-3">
                     <div class="flex gap-2">
-                        <input type="text" id="auth-first-name" placeholder="First Name" class="w-1/2 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none">
-                        <input type="text" id="auth-last-name" placeholder="Last Name" class="w-1/2 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none">
+                        <input type="text" id="auth-first-name" placeholder="First Name" class="w-1/2 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500">
+                        <input type="text" id="auth-last-name" placeholder="Last Name" class="w-1/2 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500">
                     </div>
-                    <input type="text" id="auth-fav-team" placeholder="Favourite Team (e.g. Arsenal)" class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none">
-                    <select id="auth-fav-sport" class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none">
+                    <input type="text" id="auth-fav-team" placeholder="Favourite Team (e.g. Arsenal)" class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500">
+                    <select id="auth-fav-sport" class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500">
                         <option value="Football">Football</option>
                         <option value="Rugby">Rugby</option>
                         <option value="Basketball">Basketball</option>
@@ -72,11 +83,11 @@
                 <button type="submit" id="auth-submit-btn" class="w-full bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-700 transition mt-2">Sign In</button>
             </form>
 
-            <button id="toggle-auth-mode" class="mt-6 text-blue-600 text-xs font-bold uppercase tracking-widest w-full text-center">New? Create Account</button>
-            <button id="close-modal-btn" class="mt-4 w-full text-gray-400 text-xs text-center uppercase tracking-widest font-bold">Close</button>
+            <button id="toggle-auth-mode" class="mt-6 text-blue-600 text-xs font-bold uppercase tracking-widest w-full text-center hover:underline">New? Create Account</button>
+            <button id="close-modal-btn" class="mt-4 w-full text-gray-400 text-xs text-center uppercase tracking-widest font-bold hover:text-gray-600">Close</button>
         </div>
     </div>
 
-    <script src="app.js?v=1.1.2"></script>
+    <script src="app.js?v=1.1.3"></script>
 </body>
 </html>
