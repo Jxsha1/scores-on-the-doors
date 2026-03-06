@@ -69,7 +69,7 @@ async function fetchFixtures() {
             ${badge}
             <div class="flex justify-between items-center text-[9px] font-black text-gray-300 uppercase tracking-widest mb-4">
                 <span>${new Date(f.kickoff_time).toLocaleDateString('en-GB', {day: '2-digit', month: 'short', hour: '2-digit', minute:'2-digit'})}</span>
-                <span class="${isLocked ? 'text-red-500' : 'text-blue-500'}">${isLocked ? 'Final Score' : 'Upcoming'}</span>
+                <span class="${isLocked ? 'text-red-500' : 'text-blue-500'}">${isLocked ? 'FT Result' : 'Upcoming'}</span>
             </div>
             <div class="flex items-center justify-between gap-4">
                 <div class="flex-1 text-right font-black text-sm text-blue-900 truncate">${f.home_team}</div>
@@ -100,7 +100,6 @@ function updateButtonLabel() {
     }
 }
 
-// --- SUBMISSION LOGIC ---
 elements.submitBtn.onclick = async () => {
     const preds = [];
     document.querySelectorAll('[data-id]').forEach(div => {
@@ -118,53 +117,72 @@ elements.submitBtn.onclick = async () => {
 };
 
 // ==========================================
-// API INTEGRATION (FOOTBALL-DATA.ORG)
+// API INTEGRATION: 10 PAST & 10 FUTURE
 // ==========================================
 elements.syncBtn.onclick = async () => {
     const apiKey = elements.apiKeyInput.value.trim();
     if (!apiKey) return alert("Please paste your API key first.");
     
-    elements.syncBtn.textContent = "Fetching from API...";
+    elements.syncBtn.textContent = "Fetching Data...";
     elements.syncBtn.disabled = true;
 
     try {
-        const targetUrl = 'https://api.football-data.org/v4/competitions/PL/matches?status=SCHEDULED';
+        // Fetch ALL matches for the season
+        const targetUrl = 'https://api.football-data.org/v4/competitions/PL/matches';
         const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
 
         const response = await fetch(proxyUrl, { headers: { 'X-Auth-Token': apiKey } });
-
-        if (!response.ok) throw new Error("API Error: Check your token or rate limits.");
-        
+        if (!response.ok) throw new Error("API Error: Check your token.");
         const data = await response.json();
         
-        const fixturesToInsert = data.matches.map(match => ({
+        // Split into Finished and Upcoming
+        const finishedMatches = data.matches.filter(m => m.status === 'FINISHED');
+        const upcomingMatches = data.matches.filter(m => m.status === 'SCHEDULED' || m.status === 'TIMED');
+
+        // Sort & Slice: Last 10 Finished (Newest first)
+        const last10 = finishedMatches.sort((a, b) => new Date(b.utcDate) - new Date(a.utcDate)).slice(0, 10);
+        // Sort & Slice: Next 10 Upcoming (Oldest first)
+        const next10 = upcomingMatches.sort((a, b) => new Date(a.utcDate) - new Date(b.utcDate)).slice(0, 10);
+
+        const matchesToProcess = [...last10, ...next10];
+
+        // Format for Database
+        const fixturesToInsert = matchesToProcess.map(match => ({
             fixture_id: match.id,
             api_id: match.id,
             sport: 'EPL',
             home_team: match.homeTeam.shortName || match.homeTeam.name,
             away_team: match.awayTeam.shortName || match.awayTeam.name,
             kickoff_time: match.utcDate,
-            status: 'upcoming'
+            status: match.status === 'FINISHED' ? 'finished' : 'upcoming',
+            home_score_actual: match.status === 'FINISHED' ? match.score.fullTime.home : null,
+            away_score_actual: match.status === 'FINISHED' ? match.score.fullTime.away : null
         }));
 
-        if (fixturesToInsert.length === 0) {
-            alert("No upcoming scheduled matches found in the API right now.");
-            elements.syncBtn.textContent = "Fetch & Sync Fixtures";
-            elements.syncBtn.disabled = false;
-            return;
+        if (fixturesToInsert.length === 0) throw new Error("No matches found in API.");
+
+        // 1. Save Matches to Database
+        const { error } = await sbClient.from('fixtures').upsert(fixturesToInsert, { onConflict: 'fixture_id' });
+        if (error) throw new Error("DB Error: " + error.message);
+
+        // 2. Auto-Calculate Points for the Finished Matches
+        elements.syncBtn.textContent = "Calculating Points...";
+        for (const match of last10) {
+            await sbClient.rpc('calculate_fixture_points', {
+                target_fixture_id: match.id,
+                final_home: match.score.fullTime.home,
+                final_away: match.score.fullTime.away
+            });
         }
 
-        const { error } = await sbClient.from('fixtures').upsert(fixturesToInsert, { onConflict: 'fixture_id' });
-        if (error) throw new Error("Database Error: " + error.message);
-
-        alert(`Success! Imported ${fixturesToInsert.length} upcoming matches into the database.`);
+        alert(`Success! Imported Next 10 and Last 10 matches, and calculated all points.`);
         fetchAdminFixtures(); 
         
     } catch (err) {
         alert(err.message);
     }
 
-    elements.syncBtn.textContent = "Fetch & Sync Fixtures";
+    elements.syncBtn.textContent = "Sync 20 Matches & Update Scores";
     elements.syncBtn.disabled = false;
 };
 
