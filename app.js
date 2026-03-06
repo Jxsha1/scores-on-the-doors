@@ -158,6 +158,13 @@ if (elements.leagues?.joinBtn) {
     };
 }
 
+window.viewLeague = (leagueId) => {
+    if(elements.leagues?.filter) {
+        elements.leagues.filter.value = leagueId;
+    }
+    switchTab('lead');
+};
+
 async function fetchMyLeagues() {
     if (!elements.leagues?.container || !currentUser) return;
     
@@ -171,9 +178,15 @@ async function fetchMyLeagues() {
     const myLeagues = members.map(m => m.leagues);
     
     elements.leagues.container.innerHTML = myLeagues.length > 0 ? myLeagues.map(l => `
-        <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex justify-between items-center">
-            <span class="font-bold text-sm text-blue-900">${l.name}</span>
-            <span class="bg-blue-50 text-blue-700 px-3 py-1 rounded-lg text-xs font-black tracking-widest border border-blue-100">CODE: ${l.invite_code}</span>
+        <div onclick="viewLeague('${l.id}')" class="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex justify-between items-center cursor-pointer hover:border-blue-300 hover:shadow-md transition-all active:scale-95 group">
+            <div class="flex flex-col">
+                <span class="font-bold text-sm text-blue-900 group-hover:text-blue-600 transition-colors">${l.name}</span>
+                <span class="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-0.5">Tap to view leaderboard</span>
+            </div>
+            <div class="flex items-center gap-3">
+                <span class="bg-blue-50 text-blue-700 px-3 py-1 rounded-lg text-xs font-black tracking-widest border border-blue-100">CODE: ${l.invite_code}</span>
+                <svg class="w-4 h-4 text-gray-300 group-hover:text-blue-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+            </div>
         </div>
     `).join('') : '<p class="text-xs text-gray-400 italic">You have not joined any leagues yet.</p>';
 
