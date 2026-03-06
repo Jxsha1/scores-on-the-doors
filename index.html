@@ -4,6 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Scores on the Doors</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1e3a8a">
+    <link rel="apple-touch-icon" href="SOTD_Logo.png">
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
@@ -98,6 +103,15 @@
         </div>
     </div>
 
-    <script src="app.js?v=1.1.12"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js')
+                    .then(reg => console.log('PWA Service Worker Registered!', reg.scope))
+                    .catch(err => console.error('PWA Registration Failed!', err));
+            });
+        }
+    </script>
+    <script src="app.js?v=1.1.13"></script>
 </body>
 </html>
