@@ -15,12 +15,14 @@ const elements = {
     syncBtn: document.getElementById('sync-api-btn'),
     apiKeyInput: document.getElementById('api-key-input'),
     tabs: { fix: document.getElementById('tab-fixtures'), lead: document.getElementById('tab-leaderboard'), adm: document.getElementById('tab-admin') },
-    sections: { fix: document.getElementById('section-fixtures'), lead: document.getElementById('section-leaderboard'), adm: document.getElementById('section-admin') }
+    sections: { fix: document.getElementById('section-fixtures'), lead: document.getElementById('section-leaderboard'), adm: document.getElementById('section-admin') },
+    subTabs: { upcoming: document.getElementById('sub-upcoming'), results: document.getElementById('sub-results') }
 };
 
 let currentUser = null;
 let isSignUpMode = false;
 let hasExistingPredictions = false;
+let currentSubTab = 'upcoming'; // Tracks which sub-tab is active
 
 function getBadge(pred, actual) {
     if (!pred || actual.h === null || actual.h === undefined) return '';
@@ -35,9 +37,16 @@ function switchTab(target) {
     if (!elements.sections[target]) return; 
     Object.values(elements.sections).forEach(s => { if(s) s.classList.add('hidden'); });
     Object.values(elements.tabs).forEach(t => { if(t) t.classList.remove('border-blue-900', 'text-blue-900'); });
-    if (document.getElementById('sticky-footer')) document.getElementById('sticky-footer').style.transform = target === 'fix' ? 'translateY(0)' : 'translateY(150%)';
+    
+    // Only show the Lock In button if we are on the 'upcoming' sub-tab of the fixtures page
+    if (document.getElementById('sticky-footer')) {
+        const showFooter = target === 'fix' && currentSubTab === 'upcoming';
+        document.getElementById('sticky-footer').style.transform = showFooter ? 'translateY(0)' : 'translateY(150%)';
+    }
+
     elements.sections[target].classList.remove('hidden');
     elements.tabs[target].classList.add('border-blue-900', 'text-blue-900');
+    
     if (target === 'fix') fetchFixtures();
     if (target === 'lead') fetchLeaderboard();
     if (target === 'adm') fetchAdminFixtures();
@@ -47,11 +56,29 @@ if (elements.tabs.fix) elements.tabs.fix.onclick = () => switchTab('fix');
 if (elements.tabs.lead) elements.tabs.lead.onclick = () => switchTab('lead');
 if (elements.tabs.adm) elements.tabs.adm.onclick = () => switchTab('adm');
 
+// --- SUB-TAB LOGIC ---
+if (elements.subTabs.upcoming) {
+    elements.subTabs.upcoming.onclick = () => {
+        currentSubTab = 'upcoming';
+        elements.subTabs.upcoming.className = "px-5 py-1.5 text-xs font-bold bg-white text-blue-900 rounded-full shadow-sm transition-all";
+        elements.subTabs.results.className = "px-5 py-1.5 text-xs font-bold text-gray-500 hover:text-blue-900 rounded-full transition-all";
+        switchTab('fix');
+    };
+}
+if (elements.subTabs.results) {
+    elements.subTabs.results.onclick = () => {
+        currentSubTab = 'finished';
+        elements.subTabs.results.className = "px-5 py-1.5 text-xs font-bold bg-white text-blue-900 rounded-full shadow-sm transition-all";
+        elements.subTabs.upcoming.className = "px-5 py-1.5 text-xs font-bold text-gray-500 hover:text-blue-900 rounded-full transition-all";
+        switchTab('fix');
+    };
+}
+
 async function fetchFixtures() {
     if (!elements.fixtures) return;
     try {
-        const pastDate = new Date(); pastDate.setDate(pastDate.getDate() - 14);
-        const { data: fixtures, error } = await sbClient.from('fixtures').select('*').gte('kickoff_time', pastDate.toISOString()).order('kickoff_time', { ascending: true });
+        // Fetch ALL matches currently in the DB (Removes the 14-day limit)
+        const { data: fixtures, error } = await sbClient.from('fixtures').select('*');
         if (error) throw error;
 
         let userPreds = [];
@@ -61,7 +88,17 @@ async function fetchFixtures() {
             if (preds) { userPreds = preds; hasExistingPredictions = userPreds.length > 0; }
         }
 
-        elements.fixtures.innerHTML = fixtures?.map(f => {
+        // Filter based on the Sub-Tab selection
+        let displayFixtures = fixtures.filter(f => f.status === currentSubTab);
+
+        // Sort intelligently: Upcoming (Soonest first), Finished (Most recent first)
+        displayFixtures.sort((a, b) => {
+            const dateA = new Date(a.kickoff_time);
+            const dateB = new Date(b.kickoff_time);
+            return currentSubTab === 'upcoming' ? dateA - dateB : dateB - dateA;
+        });
+
+        elements.fixtures.innerHTML = displayFixtures.map(f => {
             const p = userPreds.find(p => p.fixture_id === f.fixture_id);
             const badge = getBadge(p ? {h: p.home_predicted, a: p.away_predicted} : null, {h: f.home_score_actual, a: f.away_score_actual});
             const isLocked = f.status === 'finished';
@@ -83,8 +120,10 @@ async function fetchFixtures() {
                 </div>
                 ${isLocked ? `<div class="mt-4 pt-4 border-t border-gray-50 text-center text-[10px] font-bold text-gray-400">Actual Result: <span class="text-blue-900">${f.home_score_actual} - ${f.away_score_actual}</span></div>` : ''}
             </div>`;
-        }).join('') || '<p class="text-center py-10 text-gray-400">No matches found.</p>';
+        }).join('') || `<p class="text-center py-10 text-gray-400">No ${currentSubTab === 'upcoming' ? 'upcoming' : 'completed'} matches found.</p>`;
+        
         updateButtonLabel();
+
     } catch (err) {
         elements.fixtures.innerHTML = `<p class="text-center py-10 text-red-500 font-bold">Error loading data: ${err.message}</p>`;
     }
@@ -108,12 +147,18 @@ function updateButtonLabel() {
 if (elements.submitBtn) {
     elements.submitBtn.onclick = async () => {
         const preds = [];
+        // Only scrape the inputs that are actually visible in the DOM
         document.querySelectorAll('[data-id]').forEach(div => {
             const id = div.dataset.id;
             const h = document.getElementById(`h-${id}`).value;
             const a = document.getElementById(`a-${id}`).value;
-            if (h !== "" && a !== "") preds.push({ uid: currentUser.id, fixture_id: parseInt(id), home_predicted: parseInt(h), away_predicted: parseInt(a) });
+            // Ensure inputs aren't disabled (prevents trying to submit historical results)
+            const isNotDisabled = !document.getElementById(`h-${id}`).disabled;
+            if (h !== "" && a !== "" && isNotDisabled) {
+                preds.push({ uid: currentUser.id, fixture_id: parseInt(id), home_predicted: parseInt(h), away_predicted: parseInt(a) });
+            }
         });
+
         if (preds.length === 0) return alert("Enter scores first!");
         elements.submitBtn.textContent = "Processing...";
         const { error } = await sbClient.from('predictions').upsert(preds, { onConflict: 'uid, fixture_id' });
@@ -122,7 +167,7 @@ if (elements.submitBtn) {
 }
 
 // ==========================================
-// API INTEGRATION: THE FIX (Reverted to corsproxy.io)
+// API INTEGRATION
 // ==========================================
 if (elements.syncBtn) {
     elements.syncBtn.onclick = async () => {
@@ -141,8 +186,6 @@ if (elements.syncBtn) {
             const dateTo = future.toISOString().split('T')[0];
 
             const targetUrl = `https://api.football-data.org/v4/competitions/PL/matches?dateFrom=${dateFrom}&dateTo=${dateTo}`;
-            
-            // Reverted to the proxy that correctly forwards headers
             const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
 
             const response = await fetch(proxyUrl, { 
