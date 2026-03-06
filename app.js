@@ -43,6 +43,14 @@ const elements = {
         container: document.getElementById('my-leagues-container'),
         filter: document.getElementById('leaderboard-filter')
     },
+    leagueAdmin: {
+        modal: document.getElementById('league-admin-modal'),
+        idInput: document.getElementById('admin-league-id'),
+        nameInput: document.getElementById('admin-league-name'),
+        updateBtn: document.getElementById('admin-league-update-btn'),
+        deleteBtn: document.getElementById('admin-league-delete-btn'),
+        closeBtn: document.getElementById('close-league-admin-btn')
+    },
     pwa: { 
         banner: document.getElementById('pwa-install-banner'), 
         btn: document.getElementById('pwa-install-btn'), 
@@ -123,7 +131,7 @@ if (elements.leagues?.createBtn) {
         
         const { data: league, error: leagueErr } = await sbClient.from('leagues').insert([{ name, invite_code: inviteCode, created_by: currentUser.id }]).select().single();
         
-        if (leagueErr) return alert("Error creating league. Have you run the SQL reload schema command? Details: " + leagueErr.message);
+        if (leagueErr) return alert("Error creating league. Details: " + leagueErr.message);
         
         const { error: memberErr } = await sbClient.from('league_members').insert([{ league_id: league.id, user_id: currentUser.id }]);
         
@@ -165,6 +173,64 @@ window.viewLeague = (leagueId) => {
     switchTab('lead');
 };
 
+window.openLeagueAdmin = (leagueId, currentName, event) => {
+    event.stopPropagation();
+    if(elements.leagueAdmin?.modal) {
+        elements.leagueAdmin.idInput.value = leagueId;
+        elements.leagueAdmin.nameInput.value = currentName;
+        elements.leagueAdmin.modal.classList.remove('hidden');
+    }
+};
+
+if (elements.leagueAdmin?.closeBtn) {
+    elements.leagueAdmin.closeBtn.onclick = () => {
+        elements.leagueAdmin.modal.classList.add('hidden');
+    };
+}
+
+if (elements.leagueAdmin?.updateBtn) {
+    elements.leagueAdmin.updateBtn.onclick = async () => {
+        const leagueId = elements.leagueAdmin.idInput.value;
+        const newName = elements.leagueAdmin.nameInput.value.trim();
+        if (!newName) return alert("Name cannot be empty.");
+
+        elements.leagueAdmin.updateBtn.textContent = "Updating...";
+        const { error } = await sbClient.from('leagues').update({ name: newName }).eq('id', leagueId);
+        
+        if (error) alert("Error updating league: " + error.message);
+        else {
+            alert("League renamed successfully!");
+            elements.leagueAdmin.modal.classList.add('hidden');
+            fetchMyLeagues();
+        }
+        elements.leagueAdmin.updateBtn.textContent = "Update Name";
+    };
+}
+
+if (elements.leagueAdmin?.deleteBtn) {
+    elements.leagueAdmin.deleteBtn.onclick = async () => {
+        const confirmDelete = confirm("Are you sure you want to completely delete this league? This cannot be undone and will remove all members.");
+        if (!confirmDelete) return;
+
+        const leagueId = elements.leagueAdmin.idInput.value;
+        elements.leagueAdmin.deleteBtn.textContent = "Deleting...";
+        
+        const { error } = await sbClient.from('leagues').delete().eq('id', leagueId);
+        
+        if (error) alert("Error deleting league: " + error.message);
+        else {
+            alert("League deleted.");
+            elements.leagueAdmin.modal.classList.add('hidden');
+            
+            if (elements.leagues?.filter && elements.leagues.filter.value === leagueId) {
+                elements.leagues.filter.value = 'global';
+            }
+            fetchMyLeagues();
+        }
+        elements.leagueAdmin.deleteBtn.textContent = "Delete League Entirely";
+    };
+}
+
 async function fetchMyLeagues() {
     if (!elements.leagues?.container || !currentUser) return;
     
@@ -177,18 +243,26 @@ async function fetchMyLeagues() {
 
     const myLeagues = members.map(m => m.leagues);
     
-    elements.leagues.container.innerHTML = myLeagues.length > 0 ? myLeagues.map(l => `
-        <div onclick="viewLeague('${l.id}')" class="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex justify-between items-center cursor-pointer hover:border-blue-300 hover:shadow-md transition-all active:scale-95 group">
-            <div class="flex flex-col">
-                <span class="font-bold text-sm text-blue-900 group-hover:text-blue-600 transition-colors">${l.name}</span>
-                <span class="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-0.5">Tap to view leaderboard</span>
-            </div>
-            <div class="flex items-center gap-3">
-                <span class="bg-blue-50 text-blue-700 px-3 py-1 rounded-lg text-xs font-black tracking-widest border border-blue-100">CODE: ${l.invite_code}</span>
-                <svg class="w-4 h-4 text-gray-300 group-hover:text-blue-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+    elements.leagues.container.innerHTML = myLeagues.length > 0 ? myLeagues.map(l => {
+        const isCreator = l.created_by === currentUser.id;
+        const safeName = l.name.replace(/'/g, "\\'");
+        const settingsBtn = isCreator ? `<button onclick="openLeagueAdmin('${l.id}', '${safeName}', event)" class="text-gray-400 hover:text-blue-900 p-2 ml-1 active:scale-95 transition-transform"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg></button>` : '';
+
+        return `
+        <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex flex-col gap-2 hover:border-blue-300 hover:shadow-md transition-all group">
+            <div class="flex justify-between items-center w-full">
+                <div onclick="viewLeague('${l.id}')" class="flex flex-col cursor-pointer flex-1">
+                    <span class="font-bold text-sm text-blue-900 group-hover:text-blue-600 transition-colors">${l.name}</span>
+                    <span class="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-0.5">Tap to view leaderboard</span>
+                </div>
+                <div class="flex items-center gap-1">
+                    <span class="bg-blue-50 text-blue-700 px-3 py-1 rounded-lg text-xs font-black tracking-widest border border-blue-100">CODE: ${l.invite_code}</span>
+                    ${settingsBtn}
+                </div>
             </div>
         </div>
-    `).join('') : '<p class="text-xs text-gray-400 italic">You have not joined any leagues yet.</p>';
+        `;
+    }).join('') : '<p class="text-xs text-gray-400 italic">You have not joined any leagues yet.</p>';
 
     if (elements.leagues.filter) {
         const currentVal = elements.leagues.filter.value;

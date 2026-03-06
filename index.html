@@ -117,6 +117,25 @@
         </div>
     </div>
 
+    <div id="league-admin-modal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center items-center z-50">
+        <div class="bg-white p-8 rounded-3xl shadow-2xl w-96 max-w-[95%] max-h-[90vh] overflow-y-auto">
+            <h3 class="text-2xl font-black mb-6 text-center text-blue-900">League Settings</h3>
+            <input type="hidden" id="admin-league-id">
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wider">Rename League</label>
+                    <input type="text" id="admin-league-name" class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500">
+                    <button id="admin-league-update-btn" class="w-full mt-2 bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-700 transition">Update Name</button>
+                </div>
+                <div class="border-t border-gray-100 pt-4 mt-4">
+                    <label class="block text-xs font-bold text-red-500 mb-1 uppercase tracking-wider">Danger Zone</label>
+                    <button id="admin-league-delete-btn" class="w-full bg-red-100 text-red-600 font-bold py-3 rounded-xl hover:bg-red-200 transition">Delete League Entirely</button>
+                </div>
+            </div>
+            <button id="close-league-admin-btn" class="mt-6 w-full text-gray-400 text-xs text-center uppercase tracking-widest font-bold hover:text-gray-600">Close</button>
+        </div>
+    </div>
+
     <div id="auth-modal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center items-center z-50">
         <div class="bg-white p-8 rounded-3xl shadow-2xl w-96 max-w-[95%] max-h-[90vh] overflow-y-auto">
             <h3 class="text-2xl font-black mb-6 text-center text-blue-900" id="auth-title">Welcome Back</h3>
@@ -151,6 +170,6 @@
             });
         }
     </script>
-    <script src="app.js?v=1.2.1"></script>
+    <script src="app.js?v=1.3.0"></script>
 </body>
 </html>
