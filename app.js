@@ -48,6 +48,8 @@ const elements = {
         idInput: document.getElementById('admin-league-id'),
         nameInput: document.getElementById('admin-league-name'),
         updateBtn: document.getElementById('admin-league-update-btn'),
+        regenBtn: document.getElementById('admin-league-regen-btn'),
+        membersList: document.getElementById('admin-league-members'),
         deleteBtn: document.getElementById('admin-league-delete-btn'),
         closeBtn: document.getElementById('close-league-admin-btn')
     },
@@ -173,12 +175,40 @@ window.viewLeague = (leagueId) => {
     switchTab('lead');
 };
 
-window.openLeagueAdmin = (leagueId, currentName, event) => {
+window.openLeagueAdmin = async (leagueId, currentName, event) => {
     event.stopPropagation();
     if(elements.leagueAdmin?.modal) {
         elements.leagueAdmin.idInput.value = leagueId;
         elements.leagueAdmin.nameInput.value = currentName;
+        elements.leagueAdmin.membersList.innerHTML = '<p class="text-xs text-gray-400">Loading members...</p>';
         elements.leagueAdmin.modal.classList.remove('hidden');
+
+        const { data, error } = await sbClient.from('league_members').select('user_id, users(display_name, first_name, last_name)').eq('league_id', leagueId);
+        
+        if (!error && data) {
+            elements.leagueAdmin.membersList.innerHTML = data.map(m => {
+                const userName = m.users?.first_name ? m.users.first_name + ' ' + (m.users.last_name || '') : m.users?.display_name?.split('@')[0] || 'Unknown User';
+                const isMe = m.user_id === currentUser.id;
+                const kickBtn = isMe ? '<span class="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Creator</span>' : `<button onclick="kickUser('${leagueId}', '${m.user_id}')" class="text-xs bg-red-100 text-red-600 px-3 py-1 rounded hover:bg-red-200 font-bold transition">Kick</button>`;
+                return `<div class="flex justify-between items-center bg-gray-50 p-2 rounded-lg border border-gray-100"><span class="text-sm font-bold text-blue-900 truncate pr-2">${userName}</span>${kickBtn}</div>`;
+            }).join('');
+        } else {
+            elements.leagueAdmin.membersList.innerHTML = '<p class="text-xs text-red-500">Failed to load members.</p>';
+        }
+    }
+};
+
+window.kickUser = async (leagueId, userId) => {
+    const confirmKick = confirm("Are you sure you want to kick this user from the league?");
+    if (!confirmKick) return;
+    
+    const { error } = await sbClient.from('league_members').delete().match({ league_id: leagueId, user_id: userId });
+    
+    if (error) alert("Error kicking user: " + error.message);
+    else {
+        alert("User kicked successfully.");
+        const currentName = elements.leagueAdmin.nameInput.value;
+        window.openLeagueAdmin(leagueId, currentName, { stopPropagation: () => {} });
     }
 };
 
@@ -204,6 +234,26 @@ if (elements.leagueAdmin?.updateBtn) {
             fetchMyLeagues();
         }
         elements.leagueAdmin.updateBtn.textContent = "Update Name";
+    };
+}
+
+if (elements.leagueAdmin?.regenBtn) {
+    elements.leagueAdmin.regenBtn.onclick = async () => {
+        const confirmRegen = confirm("Generate a new invite code? The old code will immediately stop working.");
+        if (!confirmRegen) return;
+        
+        const leagueId = elements.leagueAdmin.idInput.value;
+        const newCode = generateInviteCode();
+        elements.leagueAdmin.regenBtn.textContent = "Generating...";
+        
+        const { error } = await sbClient.from('leagues').update({ invite_code: newCode }).eq('id', leagueId);
+        
+        if (error) alert("Error updating code: " + error.message);
+        else {
+            alert(`New code generated: ${newCode}`);
+            fetchMyLeagues();
+        }
+        elements.leagueAdmin.regenBtn.textContent = "Regenerate Code";
     };
 }
 
