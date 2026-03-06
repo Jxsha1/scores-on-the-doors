@@ -1,6 +1,11 @@
+window.onerror = function(msg, url, line) {
+    alert('System Error: ' + msg + ' at line ' + line);
+    return false;
+};
+
 const PROJECT_URL = 'https://czzfljgkuawccuwuhywf.supabase.co';
 const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN6emZsamdrdWF3Y2N1d3VoeXdmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI0NzEzNTAsImV4cCI6MjA4ODA0NzM1MH0.Ev_jTqHalcTwej5gOC155ttQZdO9J4CAmx6nA2dttAY';
-const sbClient = window.supabase.createClient(PROJECT_URL, ANON_KEY);
+const sbClient = window.supabase?.createClient(PROJECT_URL, ANON_KEY);
 
 const elements = {
     loginBtn: document.getElementById('login-btn'),
@@ -14,10 +19,36 @@ const elements = {
     status: document.getElementById('user-status-msg'),
     syncBtn: document.getElementById('sync-api-btn'),
     apiKeyInput: document.getElementById('api-key-input'),
-    tabs: { fix: document.getElementById('tab-fixtures'), lead: document.getElementById('tab-leaderboard'), adm: document.getElementById('tab-admin') },
-    sections: { fix: document.getElementById('section-fixtures'), lead: document.getElementById('section-leaderboard'), adm: document.getElementById('section-admin') },
-    subTabs: { upcoming: document.getElementById('sub-upcoming'), results: document.getElementById('sub-results') },
-    pwa: { banner: document.getElementById('pwa-install-banner'), btn: document.getElementById('pwa-install-btn'), close: document.getElementById('pwa-close-btn'), text: document.getElementById('pwa-install-text') }
+    tabs: { 
+        fix: document.getElementById('tab-fixtures'), 
+        lead: document.getElementById('tab-leaderboard'), 
+        leg: document.getElementById('tab-leagues'),
+        adm: document.getElementById('tab-admin') 
+    },
+    sections: { 
+        fix: document.getElementById('section-fixtures'), 
+        lead: document.getElementById('section-leaderboard'), 
+        leg: document.getElementById('section-leagues'),
+        adm: document.getElementById('section-admin') 
+    },
+    subTabs: { 
+        upcoming: document.getElementById('sub-upcoming'), 
+        results: document.getElementById('sub-results') 
+    },
+    leagues: {
+        createBtn: document.getElementById('create-league-btn'),
+        joinBtn: document.getElementById('join-league-btn'),
+        createName: document.getElementById('new-league-name'),
+        joinCode: document.getElementById('join-league-code'),
+        container: document.getElementById('my-leagues-container'),
+        filter: document.getElementById('leaderboard-filter')
+    },
+    pwa: { 
+        banner: document.getElementById('pwa-install-banner'), 
+        btn: document.getElementById('pwa-install-btn'), 
+        close: document.getElementById('pwa-close-btn'), 
+        text: document.getElementById('pwa-install-text') 
+    }
 };
 
 let currentUser = null;
@@ -27,7 +58,7 @@ let currentSubTab = 'upcoming';
 let deferredPrompt; 
 
 function getBadge(pred, actual) {
-    if (!pred || actual.h === null || actual.h === undefined) return '';
+    if (!pred || actual?.h === null || actual?.h === undefined) return '';
     const exact = pred.h === actual.h && pred.a === actual.a;
     const res = (pred.h > pred.a && actual.h > actual.a) || (pred.h < pred.a && actual.h < actual.a) || (pred.h === pred.a && actual.h === actual.a);
     if (exact) return '<span class="stamp-fade absolute -top-2 -right-2 bg-green-500 text-white text-[8px] font-black px-2 py-1 rounded-lg shadow-lg rotate-12 z-10 border-2 border-white uppercase tracking-tighter">Correct Score +3</span>';
@@ -36,13 +67,14 @@ function getBadge(pred, actual) {
 }
 
 function switchTab(target) {
-    if (!elements.sections[target]) return; 
+    if (!elements.sections?.[target]) return; 
     Object.values(elements.sections).forEach(s => { if(s) s.classList.add('hidden'); });
     Object.values(elements.tabs).forEach(t => { if(t) t.classList.remove('border-blue-900', 'text-blue-900'); });
     
-    if (document.getElementById('sticky-footer')) {
+    const stickyFooter = document.getElementById('sticky-footer');
+    if (stickyFooter) {
         const showFooter = target === 'fix' && currentSubTab === 'upcoming';
-        document.getElementById('sticky-footer').style.transform = showFooter ? 'translateY(0)' : 'translateY(150%)';
+        stickyFooter.style.transform = showFooter ? 'translateY(0)' : 'translateY(150%)';
     }
 
     elements.sections[target].classList.remove('hidden');
@@ -50,29 +82,143 @@ function switchTab(target) {
     
     if (target === 'fix') fetchFixtures();
     if (target === 'lead') fetchLeaderboard();
+    if (target === 'leg') fetchMyLeagues();
     if (target === 'adm') fetchAdminFixtures();
 }
 
-if (elements.tabs.fix) elements.tabs.fix.onclick = () => switchTab('fix');
-if (elements.tabs.lead) elements.tabs.lead.onclick = () => switchTab('lead');
-if (elements.tabs.adm) elements.tabs.adm.onclick = () => switchTab('adm');
+if (elements.tabs?.fix) elements.tabs.fix.onclick = () => switchTab('fix');
+if (elements.tabs?.lead) elements.tabs.lead.onclick = () => switchTab('lead');
+if (elements.tabs?.leg) elements.tabs.leg.onclick = () => switchTab('leg');
+if (elements.tabs?.adm) elements.tabs.adm.onclick = () => switchTab('adm');
 
-if (elements.subTabs.upcoming) {
+if (elements.subTabs?.upcoming) {
     elements.subTabs.upcoming.onclick = () => {
         currentSubTab = 'upcoming';
         elements.subTabs.upcoming.className = "px-5 py-1.5 text-xs font-bold bg-white text-blue-900 rounded-full shadow-sm transition-all";
-        elements.subTabs.results.className = "px-5 py-1.5 text-xs font-bold text-gray-500 hover:text-blue-900 rounded-full transition-all";
+        if (elements.subTabs.results) elements.subTabs.results.className = "px-5 py-1.5 text-xs font-bold text-gray-500 hover:text-blue-900 rounded-full transition-all";
         switchTab('fix');
     };
 }
 
-if (elements.subTabs.results) {
+if (elements.subTabs?.results) {
     elements.subTabs.results.onclick = () => {
         currentSubTab = 'finished';
         elements.subTabs.results.className = "px-5 py-1.5 text-xs font-bold bg-white text-blue-900 rounded-full shadow-sm transition-all";
-        elements.subTabs.upcoming.className = "px-5 py-1.5 text-xs font-bold text-gray-500 hover:text-blue-900 rounded-full transition-all";
+        if (elements.subTabs.upcoming) elements.subTabs.upcoming.className = "px-5 py-1.5 text-xs font-bold text-gray-500 hover:text-blue-900 rounded-full transition-all";
         switchTab('fix');
     };
+}
+
+function generateInviteCode() {
+    return Math.random().toString(36).substring(2, 8).toUpperCase();
+}
+
+if (elements.leagues?.createBtn) {
+    elements.leagues.createBtn.onclick = async () => {
+        if (!currentUser) return alert("Please sign in to create a league.");
+        const name = elements.leagues.createName.value.trim();
+        if (!name) return alert("Please enter a league name.");
+        
+        const inviteCode = generateInviteCode();
+        
+        const { data: league, error: leagueErr } = await sbClient.from('leagues').insert([{ name, invite_code: inviteCode, created_by: currentUser.id }]).select().single();
+        
+        if (leagueErr) return alert("Error creating league: " + leagueErr.message);
+        
+        const { error: memberErr } = await sbClient.from('league_members').insert([{ league_id: league.id, user_id: currentUser.id }]);
+        
+        if (memberErr) return alert("Error joining your new league: " + memberErr.message);
+        
+        alert(`League Created! Your invite code is ${inviteCode}`);
+        elements.leagues.createName.value = '';
+        fetchMyLeagues();
+    };
+}
+
+if (elements.leagues?.joinBtn) {
+    elements.leagues.joinBtn.onclick = async () => {
+        if (!currentUser) return alert("Please sign in to join a league.");
+        const code = elements.leagues.joinCode.value.trim().toUpperCase();
+        if (!code) return alert("Please enter a code.");
+        
+        const { data: league, error: findErr } = await sbClient.from('leagues').select('*').eq('invite_code', code).single();
+        
+        if (findErr || !league) return alert("Invalid invite code.");
+        
+        const { error: joinErr } = await sbClient.from('league_members').insert([{ league_id: league.id, user_id: currentUser.id }]);
+        
+        if (joinErr) {
+            if(joinErr.code === '23505') return alert("You are already in this league!");
+            return alert("Error joining league: " + joinErr.message);
+        }
+        
+        alert(`Successfully joined ${league.name}!`);
+        elements.leagues.joinCode.value = '';
+        fetchMyLeagues();
+    };
+}
+
+async function fetchMyLeagues() {
+    if (!elements.leagues?.container || !currentUser) return;
+    
+    const { data: members, error } = await sbClient.from('league_members').select('leagues(*)').eq('user_id', currentUser.id);
+    
+    if (error) {
+        elements.leagues.container.innerHTML = `<p class="text-xs text-red-500">Error loading leagues.</p>`;
+        return;
+    }
+
+    const myLeagues = members.map(m => m.leagues);
+    
+    elements.leagues.container.innerHTML = myLeagues.length > 0 ? myLeagues.map(l => `
+        <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex justify-between items-center">
+            <span class="font-bold text-sm text-blue-900">${l.name}</span>
+            <span class="bg-blue-50 text-blue-700 px-3 py-1 rounded-lg text-xs font-black tracking-widest border border-blue-100">CODE: ${l.invite_code}</span>
+        </div>
+    `).join('') : '<p class="text-xs text-gray-400 italic">You have not joined any leagues yet.</p>';
+
+    if (elements.leagues.filter) {
+        const currentVal = elements.leagues.filter.value;
+        elements.leagues.filter.innerHTML = `<option value="global">Global Leaderboard</option>` + 
+            myLeagues.map(l => `<option value="${l.id}">${l.name}</option>`).join('');
+        
+        if(Array.from(elements.leagues.filter.options).some(o => o.value === currentVal)) {
+            elements.leagues.filter.value = currentVal;
+        }
+    }
+}
+
+if(elements.leagues?.filter) {
+    elements.leagues.filter.addEventListener('change', fetchLeaderboard);
+}
+
+async function fetchLeaderboard() {
+    if(!elements.leaderboard) return;
+    
+    let query = sbClient.from('users').select('*').order('total_points', { ascending: false }).order('exact_scores', { ascending: false });
+    
+    const filterVal = elements.leagues?.filter?.value;
+    if (filterVal && filterVal !== 'global') {
+        const { data: leagueMembers } = await sbClient.from('league_members').select('user_id').eq('league_id', filterVal);
+        if (leagueMembers) {
+            const userIds = leagueMembers.map(m => m.user_id);
+            if(userIds.length > 0) {
+                query = query.in('uid', userIds);
+            } else {
+                elements.leaderboard.innerHTML = '<tr><td colspan="3" class="text-center py-4 text-gray-400 text-xs">No active users in this league.</td></tr>';
+                return;
+            }
+        }
+    }
+    
+    const { data } = await query;
+    elements.leaderboard.innerHTML = (data || []).map((u, i) => `
+        <tr class="hover:bg-gray-50 transition-colors">
+            <td class="px-6 py-5 text-gray-300 font-black text-sm italic">#${i+1}</td>
+            <td class="px-6 py-5 font-bold text-blue-900">${u.first_name ? u.first_name + ' ' + (u.last_name || '') : u.display_name?.split('@')[0] || 'Unknown User'}</td>
+            <td class="px-6 py-5 text-right font-black text-blue-600 text-lg">${u.total_points || 0}</td>
+        </tr>
+    `).join('') || '';
 }
 
 async function fetchFixtures() {
@@ -168,7 +314,7 @@ if (elements.submitBtn) {
 
 if (elements.syncBtn) {
     elements.syncBtn.onclick = async () => {
-        const apiKey = elements.apiKeyInput.value.trim();
+        const apiKey = elements.apiKeyInput?.value?.trim();
         if (!apiKey) return alert("Please paste your API key first.");
         elements.syncBtn.textContent = "Fetching Data...";
         elements.syncBtn.disabled = true;
@@ -193,12 +339,12 @@ if (elements.syncBtn) {
                 fixture_id: match.id,
                 api_id: match.id,
                 sport: 'EPL',
-                home_team: match.homeTeam.shortName || match.homeTeam.name || "Unknown Team",
-                away_team: match.awayTeam.shortName || match.awayTeam.name || "Unknown Team",
+                home_team: match.homeTeam?.shortName || match.homeTeam?.name || "Unknown Team",
+                away_team: match.awayTeam?.shortName || match.awayTeam?.name || "Unknown Team",
                 kickoff_time: match.utcDate,
                 status: match.status === 'FINISHED' ? 'finished' : 'upcoming',
-                home_score_actual: match.status === 'FINISHED' ? match.score.fullTime.home : null,
-                away_score_actual: match.status === 'FINISHED' ? match.score.fullTime.away : null
+                home_score_actual: match.status === 'FINISHED' ? match.score?.fullTime?.home : null,
+                away_score_actual: match.status === 'FINISHED' ? match.score?.fullTime?.away : null
             }));
 
             const { error } = await sbClient.from('fixtures').upsert(fixturesToInsert, { onConflict: 'fixture_id' });
@@ -209,8 +355,8 @@ if (elements.syncBtn) {
             for (const match of finishedMatches) {
                 await sbClient.rpc('calculate_fixture_points', {
                     target_fixture_id: match.id,
-                    final_home: match.score.fullTime.home || 0,
-                    final_away: match.score.fullTime.away || 0
+                    final_home: match.score?.fullTime?.home || 0,
+                    final_away: match.score?.fullTime?.away || 0
                 });
             }
 
@@ -244,64 +390,58 @@ async function fetchAdminFixtures() {
 }
 
 window.updateMatchResult = async (id) => {
-    const h = parseInt(document.getElementById(`adm-h-${id}`).value);
-    const a = parseInt(document.getElementById(`adm-a-${id}`).value);
+    const h = parseInt(document.getElementById(`adm-h-${id}`)?.value);
+    const a = parseInt(document.getElementById(`adm-a-${id}`)?.value);
     if (isNaN(h) || isNaN(a)) return alert("Please enter valid scores.");
     const { error } = await sbClient.rpc('calculate_fixture_points', { target_fixture_id: id, final_home: h, final_away: a });
     alert(error ? error.message : "Match Result Processed & Points Awarded!");
     fetchAdminFixtures();
 };
 
-async function fetchLeaderboard() {
-    if(!elements.leaderboard) return;
-    const { data } = await sbClient.from('users').select('*').order('total_points', { ascending: false }).order('exact_scores', { ascending: false });
-    elements.leaderboard.innerHTML = (data || []).map((u, i) => `
-        <tr class="hover:bg-gray-50 transition-colors">
-            <td class="px-6 py-5 text-gray-300 font-black text-sm italic">#${i+1}</td>
-            <td class="px-6 py-5 font-bold text-blue-900">${u.first_name ? u.first_name + ' ' + (u.last_name || '') : u.display_name?.split('@')[0] || 'Unknown User'}</td>
-            <td class="px-6 py-5 text-right font-black text-blue-600 text-lg">${u.total_points || 0}</td>
-        </tr>
-    `).join('') || '';
-}
+const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 
-if (elements.pwa.banner) {
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+if (!isStandalone && elements.pwa?.banner) {
+    window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        setTimeout(showInstallBanner, 2000); 
+    });
 
-    if (!isStandalone) {
-        window.addEventListener('beforeinstallprompt', (e) => {
-            e.preventDefault();
-            deferredPrompt = e;
-            setTimeout(showInstallBanner, 2000); 
-        });
+    const isIos = () => /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
+    const isSafari = () => {
+        const ua = window.navigator.userAgent.toLowerCase();
+        return /safari/.test(ua) && !/chrome|crios|fxios/.test(ua);
+    };
 
-        const isIos = () => /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
-        const isSafari = () => {
-            const ua = window.navigator.userAgent.toLowerCase();
-            return /safari/.test(ua) && !/chrome|crios|fxios/.test(ua);
-        };
+    if (isIos() && isSafari() && elements.pwa?.text) {
+        elements.pwa.text.innerHTML = `
+            <span class="block font-bold mb-2 text-white text-[13px]">Install our free app for the best experience!</span>
+            <span class="block mb-1 text-[11px]">1. Tap the <svg class="inline-block w-5 h-5 mx-0.5 -mt-1 text-gray-400" fill="currentColor" viewBox="0 0 24 24"><path d="M6 12a2 2 0 11-4 0 2 2 0 014 0zM12 10a2 2 0 100 4 2 2 0 000-4zM22 12a2 2 0 11-4 0 2 2 0 014 0z"/></svg> or <svg class="inline-block w-4 h-4 mx-0.5 -mt-1 text-blue-400" viewBox="0 0 512 512" fill="none" stroke="currentColor" stroke-width="40" stroke-linecap="round" stroke-linejoin="round"><path d="M336 176h40a40 40 0 0140 40v208a40 40 0 01-40 40H136a40 40 0 01-40-40V216a40 40 0 0140-40h40"/><path d="M336 112L256 32l-80 80"/><path d="M256 32v256"/></svg> icon.</span>
+            <span class="block text-[11px]">2. Select <strong>Share</strong> ➝ <strong>View more</strong> ➝ <strong>Add to Home Screen</strong></span>
+        `;
+        
+        elements.pwa.text.classList.remove('mt-1');
+        elements.pwa.text.classList.add('mt-2', 'leading-tight');
+        
+        if (elements.pwa?.btn) elements.pwa.btn.classList.add('hidden'); 
+        setTimeout(showInstallBanner, 2000);
+    }
 
-        if (isIos() && isSafari()) {
-            elements.pwa.text.innerHTML = `
-                <span class="block font-bold mb-2 text-white text-[13px]">Install our free app for the best experience!</span>
-                <span class="block mb-1 text-[11px]">1. Tap the <svg class="inline-block w-5 h-5 mx-0.5 -mt-1 text-gray-400" fill="currentColor" viewBox="0 0 24 24"><path d="M6 12a2 2 0 11-4 0 2 2 0 014 0zM12 10a2 2 0 100 4 2 2 0 000-4zM22 12a2 2 0 11-4 0 2 2 0 014 0z"/></svg> or <svg class="inline-block w-4 h-4 mx-0.5 -mt-1 text-blue-400" viewBox="0 0 512 512" fill="none" stroke="currentColor" stroke-width="40" stroke-linecap="round" stroke-linejoin="round"><path d="M336 176h40a40 40 0 0140 40v208a40 40 0 01-40 40H136a40 40 0 01-40-40V216a40 40 0 0140-40h40"/><path d="M336 112L256 32l-80 80"/><path d="M256 32v256"/></svg> icon.</span>
-                <span class="block text-[11px]">2. Select <strong>Share</strong> ➝ <strong>View more</strong> ➝ <strong>Add to Home Screen</strong></span>
-            `;
-            elements.pwa.text.classList.remove('mt-1');
-            elements.pwa.text.classList.add('mt-2', 'leading-tight');
-            elements.pwa.btn.classList.add('hidden'); 
-            setTimeout(showInstallBanner, 2000);
-        }
-
-        function showInstallBanner() {
+    function showInstallBanner() {
+        if (elements.pwa?.banner) {
             elements.pwa.banner.classList.remove('hidden');
             setTimeout(() => elements.pwa.banner.classList.remove('translate-y-full'), 100);
         }
+    }
 
+    if (elements.pwa?.close) {
         elements.pwa.close.onclick = () => {
             elements.pwa.banner.classList.add('translate-y-full');
             setTimeout(() => elements.pwa.banner.classList.add('hidden'), 500);
         };
+    }
 
+    if (elements.pwa?.btn) {
         elements.pwa.btn.onclick = async () => {
             if (deferredPrompt) {
                 deferredPrompt.prompt();
@@ -315,40 +455,48 @@ if (elements.pwa.banner) {
     }
 }
 
-if (elements.loginBtn) elements.loginBtn.onclick = () => currentUser ? sbClient.auth.signOut() : elements.authModal.classList.remove('hidden');
-if (document.getElementById('close-modal-btn')) document.getElementById('close-modal-btn').onclick = () => elements.authModal.classList.add('hidden');
-if (document.getElementById('toggle-auth-mode')) document.getElementById('toggle-auth-mode').onclick = () => {
-    isSignUpMode = !isSignUpMode;
-    elements.signupFields.classList.toggle('hidden', !isSignUpMode);
-    document.getElementById('auth-title').textContent = isSignUpMode ? 'Join The Club' : 'Welcome Back';
-    document.getElementById('auth-submit-btn').textContent = isSignUpMode ? 'Create Account' : 'Sign In';
-};
+if (elements.loginBtn) elements.loginBtn.onclick = () => currentUser ? sbClient.auth.signOut() : elements.authModal?.classList.remove('hidden');
+if (document.getElementById('close-modal-btn')) document.getElementById('close-modal-btn').onclick = () => elements.authModal?.classList.add('hidden');
+
+const toggleAuthModeBtn = document.getElementById('toggle-auth-mode');
+if (toggleAuthModeBtn) {
+    toggleAuthModeBtn.onclick = () => {
+        isSignUpMode = !isSignUpMode;
+        elements.signupFields?.classList.toggle('hidden', !isSignUpMode);
+        const authTitle = document.getElementById('auth-title');
+        if (authTitle) authTitle.textContent = isSignUpMode ? 'Join The Club' : 'Welcome Back';
+        const authSubmitBtn = document.getElementById('auth-submit-btn');
+        if (authSubmitBtn) authSubmitBtn.textContent = isSignUpMode ? 'Create Account' : 'Sign In';
+    };
+}
 
 if (elements.authForm) {
     elements.authForm.onsubmit = async (e) => {
         e.preventDefault();
-        const email = document.getElementById('auth-email').value;
-        const password = document.getElementById('auth-password').value;
+        const email = document.getElementById('auth-email')?.value;
+        const password = document.getElementById('auth-password')?.value;
         let result = isSignUpMode ? await sbClient.auth.signUp({ email, password }) : await sbClient.auth.signInWithPassword({ email, password });
+        
         if (!result.error && isSignUpMode) {
             setTimeout(async () => {
                 await sbClient.from('users').update({
-                    first_name: document.getElementById('auth-first-name').value,
-                    last_name: document.getElementById('auth-last-name').value,
-                    fav_team: document.getElementById('auth-fav-team').value,
-                    fav_sport: document.getElementById('auth-fav-sport').value
+                    first_name: document.getElementById('auth-first-name')?.value || '',
+                    last_name: document.getElementById('auth-last-name')?.value || '',
+                    fav_team: document.getElementById('auth-fav-team')?.value || '',
+                    fav_sport: document.getElementById('auth-fav-sport')?.value || 'Football'
                 }).eq('uid', result.data.user.id);
             }, 1000);
         }
-        if (result.error) alert(result.error.message); else elements.authModal.classList.add('hidden');
+        if (result.error) alert(result.error.message); else elements.authModal?.classList.add('hidden');
     };
 }
 
-sbClient.auth.onAuthStateChange((_, session) => {
+sbClient?.auth.onAuthStateChange((_, session) => {
     currentUser = session?.user || null;
     if (elements.loginBtn) {
         elements.loginBtn.textContent = currentUser ? 'Log Out' : 'Sign In';
         elements.loginBtn.className = currentUser ? "bg-red-600 hover:bg-red-500 px-4 py-2 rounded text-sm font-semibold transition text-white" : "bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded text-sm font-semibold transition text-white";
     }
     fetchFixtures();
+    fetchMyLeagues();
 });
