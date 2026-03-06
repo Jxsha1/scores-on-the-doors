@@ -2,7 +2,6 @@ const PROJECT_URL = 'https://czzfljgkuawccuwuhywf.supabase.co';
 const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN6emZsamdrdWF3Y2N1d3VoeXdmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI0NzEzNTAsImV4cCI6MjA4ODA0NzM1MH0.Ev_jTqHalcTwej5gOC155ttQZdO9J4CAmx6nA2dttAY';
 const sbClient = window.supabase.createClient(PROJECT_URL, ANON_KEY);
 
-// Bulletproof element mapping
 const elements = {
     loginBtn: document.getElementById('login-btn'),
     authModal: document.getElementById('auth-modal'),
@@ -15,23 +14,14 @@ const elements = {
     status: document.getElementById('user-status-msg'),
     syncBtn: document.getElementById('sync-api-btn'),
     apiKeyInput: document.getElementById('api-key-input'),
-    tabs: { 
-        fix: document.getElementById('tab-fixtures'), 
-        lead: document.getElementById('tab-leaderboard'), 
-        adm: document.getElementById('tab-admin') 
-    },
-    sections: { 
-        fix: document.getElementById('section-fixtures'), 
-        lead: document.getElementById('section-leaderboard'), 
-        adm: document.getElementById('section-admin') 
-    }
+    tabs: { fix: document.getElementById('tab-fixtures'), lead: document.getElementById('tab-leaderboard'), adm: document.getElementById('tab-admin') },
+    sections: { fix: document.getElementById('section-fixtures'), lead: document.getElementById('section-leaderboard'), adm: document.getElementById('section-admin') }
 };
 
 let currentUser = null;
 let isSignUpMode = false;
 let hasExistingPredictions = false;
 
-// --- UTILS ---
 function getBadge(pred, actual) {
     if (!pred || actual.h === null || actual.h === undefined) return '';
     const exact = pred.h === actual.h && pred.a === actual.a;
@@ -42,52 +32,33 @@ function getBadge(pred, actual) {
 }
 
 function switchTab(target) {
-    if (!elements.sections[target]) return; // Safety check
+    if (!elements.sections[target]) return; 
     Object.values(elements.sections).forEach(s => { if(s) s.classList.add('hidden'); });
     Object.values(elements.tabs).forEach(t => { if(t) t.classList.remove('border-blue-900', 'text-blue-900'); });
-    
-    if (document.getElementById('sticky-footer')) {
-        document.getElementById('sticky-footer').style.transform = target === 'fix' ? 'translateY(0)' : 'translateY(150%)';
-    }
-    
+    if (document.getElementById('sticky-footer')) document.getElementById('sticky-footer').style.transform = target === 'fix' ? 'translateY(0)' : 'translateY(150%)';
     elements.sections[target].classList.remove('hidden');
     elements.tabs[target].classList.add('border-blue-900', 'text-blue-900');
-    
     if (target === 'fix') fetchFixtures();
     if (target === 'lead') fetchLeaderboard();
     if (target === 'adm') fetchAdminFixtures();
 }
 
-// SAFE EVENT BINDING (Prevents app crashes if HTML is out of sync)
 if (elements.tabs.fix) elements.tabs.fix.onclick = () => switchTab('fix');
 if (elements.tabs.lead) elements.tabs.lead.onclick = () => switchTab('lead');
 if (elements.tabs.adm) elements.tabs.adm.onclick = () => switchTab('adm');
 
-// --- FIXTURES ---
 async function fetchFixtures() {
     if (!elements.fixtures) return;
-    
     try {
-        const pastDate = new Date();
-        pastDate.setDate(pastDate.getDate() - 14);
-        
-        const { data: fixtures, error } = await sbClient
-            .from('fixtures')
-            .select('*')
-            .gte('kickoff_time', pastDate.toISOString()) 
-            .order('kickoff_time', { ascending: true });
-
+        const pastDate = new Date(); pastDate.setDate(pastDate.getDate() - 14);
+        const { data: fixtures, error } = await sbClient.from('fixtures').select('*').gte('kickoff_time', pastDate.toISOString()).order('kickoff_time', { ascending: true });
         if (error) throw error;
 
         let userPreds = [];
         hasExistingPredictions = false;
-
         if (currentUser) {
-            const { data: preds, error: predError } = await sbClient.from('predictions').select('*').eq('uid', currentUser.id);
-            if (!predError && preds) {
-                userPreds = preds;
-                hasExistingPredictions = userPreds.length > 0;
-            }
+            const { data: preds } = await sbClient.from('predictions').select('*').eq('uid', currentUser.id);
+            if (preds) { userPreds = preds; hasExistingPredictions = userPreds.length > 0; }
         }
 
         elements.fixtures.innerHTML = fixtures?.map(f => {
@@ -112,12 +83,9 @@ async function fetchFixtures() {
                 </div>
                 ${isLocked ? `<div class="mt-4 pt-4 border-t border-gray-50 text-center text-[10px] font-bold text-gray-400">Actual Result: <span class="text-blue-900">${f.home_score_actual} - ${f.away_score_actual}</span></div>` : ''}
             </div>`;
-        }).join('') || '<p class="text-center py-10 text-gray-400">No matches found in the active window.</p>';
-        
+        }).join('') || '<p class="text-center py-10 text-gray-400">No matches found.</p>';
         updateButtonLabel();
-
     } catch (err) {
-        console.error(err);
         elements.fixtures.innerHTML = `<p class="text-center py-10 text-red-500 font-bold">Error loading data: ${err.message}</p>`;
     }
 }
@@ -146,24 +114,23 @@ if (elements.submitBtn) {
             const a = document.getElementById(`a-${id}`).value;
             if (h !== "" && a !== "") preds.push({ uid: currentUser.id, fixture_id: parseInt(id), home_predicted: parseInt(h), away_predicted: parseInt(a) });
         });
-
         if (preds.length === 0) return alert("Enter scores first!");
         elements.submitBtn.textContent = "Processing...";
         const { error } = await sbClient.from('predictions').upsert(preds, { onConflict: 'uid, fixture_id' });
-        if (error) alert("Error saving: " + error.message);
-        else { alert("Scores Saved!"); fetchFixtures(); }
+        if (error) alert("Error saving: " + error.message); else { alert("Scores Saved!"); fetchFixtures(); }
     };
 }
 
 // ==========================================
-// API INTEGRATION: ROLLING TIME WINDOW
+// API INTEGRATION: ENHANCED ERROR LOGGING
 // ==========================================
 if (elements.syncBtn) {
     elements.syncBtn.onclick = async () => {
+        // .trim() ensures no accidental spaces from copying!
         const apiKey = elements.apiKeyInput.value.trim();
         if (!apiKey) return alert("Please paste your API key first.");
         
-        elements.syncBtn.textContent = "Fetching Time Window...";
+        elements.syncBtn.textContent = "Fetching Data...";
         elements.syncBtn.disabled = true;
 
         try {
@@ -175,12 +142,36 @@ if (elements.syncBtn) {
             const dateTo = future.toISOString().split('T')[0];
 
             const targetUrl = `https://api.football-data.org/v4/competitions/PL/matches?dateFrom=${dateFrom}&dateTo=${dateTo}`;
-            const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
+            
+            // Using a different proxy just in case corsproxy.io was the culprit blocking the header
+            const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
 
-            const response = await fetch(proxyUrl, { headers: { 'X-Auth-Token': apiKey } });
-            if (!response.ok) throw new Error("API Error: Check your token.");
+            const response = await fetch(proxyUrl, { 
+                method: 'GET',
+                headers: { 
+                    'X-Auth-Token': apiKey,
+                    'Content-Type': 'application/json'
+                } 
+            });
+
+            // ENHANCED ERROR HANDLING
+            if (!response.ok) {
+                let errorMsg = `HTTP Error ${response.status}`;
+                try {
+                    const errData = await response.json();
+                    errorMsg = `API Error ${response.status}: ${errData.message || response.statusText}`;
+                } catch(e) {
+                    errorMsg = `API Error ${response.status}: ${response.statusText}. The proxy or API rejected the request.`;
+                }
+                throw new Error(errorMsg);
+            }
+
             const data = await response.json();
             
+            if (!data.matches || data.matches.length === 0) {
+                throw new Error(`No matches found between ${dateFrom} and ${dateTo}.`);
+            }
+
             const fixturesToInsert = data.matches.map(match => ({
                 fixture_id: match.id,
                 api_id: match.id,
@@ -193,10 +184,8 @@ if (elements.syncBtn) {
                 away_score_actual: match.status === 'FINISHED' ? match.score.fullTime.away : null
             }));
 
-            if (fixturesToInsert.length === 0) throw new Error(`No matches found between ${dateFrom} and ${dateTo}.`);
-
             const { error } = await sbClient.from('fixtures').upsert(fixturesToInsert, { onConflict: 'fixture_id' });
-            if (error) throw new Error("DB Error: " + error.message);
+            if (error) throw new Error("Database Error: " + error.message);
 
             elements.syncBtn.textContent = "Calculating Points...";
             const finishedMatches = data.matches.filter(m => m.status === 'FINISHED');
@@ -208,7 +197,7 @@ if (elements.syncBtn) {
                 });
             }
 
-            alert(`Success! Imported ${fixturesToInsert.length} matches from the active rolling window.`);
+            alert(`Success! Imported ${fixturesToInsert.length} matches.`);
             fetchAdminFixtures(); 
             
         } catch (err) {
@@ -220,7 +209,6 @@ if (elements.syncBtn) {
     };
 }
 
-// --- LEADERBOARD & ADMIN ---
 async function fetchAdminFixtures() {
     if(!elements.adminFixtures) return;
     const pastDate = new Date(); pastDate.setDate(pastDate.getDate() - 14);
@@ -259,7 +247,6 @@ async function fetchLeaderboard() {
     `).join('') || '';
 }
 
-// --- AUTHENTICATION ---
 if (elements.loginBtn) elements.loginBtn.onclick = () => currentUser ? sbClient.auth.signOut() : elements.authModal.classList.remove('hidden');
 if (document.getElementById('close-modal-btn')) document.getElementById('close-modal-btn').onclick = () => elements.authModal.classList.add('hidden');
 if (document.getElementById('toggle-auth-mode')) document.getElementById('toggle-auth-mode').onclick = () => {
