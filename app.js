@@ -47,9 +47,19 @@ elements.tabs.fix.onclick = () => switchTab('fix');
 elements.tabs.lead.onclick = () => switchTab('lead');
 elements.tabs.adm.onclick = () => switchTab('adm');
 
-// --- FIXTURES ---
+// --- FIXTURES (Rolling Window Display) ---
 async function fetchFixtures() {
-    const { data: fixtures } = await sbClient.from('fixtures').select('*').order('kickoff_time', { ascending: true });
+    // Only fetch matches from 10 days ago onwards to keep the UI clean
+    const pastDate = new Date();
+    pastDate.setDate(pastDate.getDate() - 10);
+    const isoPastDate = pastDate.toISOString();
+
+    const { data: fixtures } = await sbClient
+        .from('fixtures')
+        .select('*')
+        .gte('kickoff_time', isoPastDate) 
+        .order('kickoff_time', { ascending: true });
+
     let userPreds = [];
     hasExistingPredictions = false;
 
@@ -68,7 +78,7 @@ async function fetchFixtures() {
         <div class="relative bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mb-4 transition-all" data-id="${f.fixture_id}">
             ${badge}
             <div class="flex justify-between items-center text-[9px] font-black text-gray-300 uppercase tracking-widest mb-4">
-                <span>${new Date(f.kickoff_time).toLocaleDateString('en-GB', {day: '2-digit', month: 'short', hour: '2-digit', minute:'2-digit'})}</span>
+                <span>${new Date(f.kickoff_time).toLocaleDateString('en-GB', {weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute:'2-digit'})}</span>
                 <span class="${isLocked ? 'text-red-500' : 'text-blue-500'}">${isLocked ? 'FT Result' : 'Upcoming'}</span>
             </div>
             <div class="flex items-center justify-between gap-4">
@@ -81,7 +91,7 @@ async function fetchFixtures() {
             </div>
             ${isLocked ? `<div class="mt-4 pt-4 border-t border-gray-50 text-center text-[10px] font-bold text-gray-400">Actual Result: <span class="text-blue-900">${f.home_score_actual} - ${f.away_score_actual}</span></div>` : ''}
         </div>`;
-    }).join('') || '<p class="text-center py-10 text-gray-400">No matches found.</p>';
+    }).join('') || '<p class="text-center py-10 text-gray-400">No matches found in the active window.</p>';
     
     updateButtonLabel();
 }
@@ -117,37 +127,32 @@ elements.submitBtn.onclick = async () => {
 };
 
 // ==========================================
-// API INTEGRATION: 10 PAST & 10 FUTURE
+// API INTEGRATION: ROLLING TIME WINDOW
 // ==========================================
 elements.syncBtn.onclick = async () => {
     const apiKey = elements.apiKeyInput.value.trim();
     if (!apiKey) return alert("Please paste your API key first.");
     
-    elements.syncBtn.textContent = "Fetching Data...";
+    elements.syncBtn.textContent = "Fetching Time Window...";
     elements.syncBtn.disabled = true;
 
     try {
-        // Fetch ALL matches for the season
-        const targetUrl = 'https://api.football-data.org/v4/competitions/PL/matches';
+        // Create the 35-day window (-14 days to +21 days)
+        const today = new Date();
+        const past = new Date(today); past.setDate(today.getDate() - 14);
+        const future = new Date(today); future.setDate(today.getDate() + 21);
+        
+        const dateFrom = past.toISOString().split('T')[0];
+        const dateTo = future.toISOString().split('T')[0];
+
+        const targetUrl = `https://api.football-data.org/v4/competitions/PL/matches?dateFrom=${dateFrom}&dateTo=${dateTo}`;
         const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
 
         const response = await fetch(proxyUrl, { headers: { 'X-Auth-Token': apiKey } });
         if (!response.ok) throw new Error("API Error: Check your token.");
         const data = await response.json();
         
-        // Split into Finished and Upcoming
-        const finishedMatches = data.matches.filter(m => m.status === 'FINISHED');
-        const upcomingMatches = data.matches.filter(m => m.status === 'SCHEDULED' || m.status === 'TIMED');
-
-        // Sort & Slice: Last 10 Finished (Newest first)
-        const last10 = finishedMatches.sort((a, b) => new Date(b.utcDate) - new Date(a.utcDate)).slice(0, 10);
-        // Sort & Slice: Next 10 Upcoming (Oldest first)
-        const next10 = upcomingMatches.sort((a, b) => new Date(a.utcDate) - new Date(b.utcDate)).slice(0, 10);
-
-        const matchesToProcess = [...last10, ...next10];
-
-        // Format for Database
-        const fixturesToInsert = matchesToProcess.map(match => ({
+        const fixturesToInsert = data.matches.map(match => ({
             fixture_id: match.id,
             api_id: match.id,
             sport: 'EPL',
@@ -159,15 +164,16 @@ elements.syncBtn.onclick = async () => {
             away_score_actual: match.status === 'FINISHED' ? match.score.fullTime.away : null
         }));
 
-        if (fixturesToInsert.length === 0) throw new Error("No matches found in API.");
+        if (fixturesToInsert.length === 0) throw new Error(`No matches found between ${dateFrom} and ${dateTo}.`);
 
         // 1. Save Matches to Database
         const { error } = await sbClient.from('fixtures').upsert(fixturesToInsert, { onConflict: 'fixture_id' });
         if (error) throw new Error("DB Error: " + error.message);
 
-        // 2. Auto-Calculate Points for the Finished Matches
+        // 2. Auto-Calculate Points for Finished Matches
         elements.syncBtn.textContent = "Calculating Points...";
-        for (const match of last10) {
+        const finishedMatches = data.matches.filter(m => m.status === 'FINISHED');
+        for (const match of finishedMatches) {
             await sbClient.rpc('calculate_fixture_points', {
                 target_fixture_id: match.id,
                 final_home: match.score.fullTime.home,
@@ -175,20 +181,23 @@ elements.syncBtn.onclick = async () => {
             });
         }
 
-        alert(`Success! Imported Next 10 and Last 10 matches, and calculated all points.`);
+        alert(`Success! Imported ${fixturesToInsert.length} matches from the active rolling window.`);
         fetchAdminFixtures(); 
         
     } catch (err) {
         alert(err.message);
     }
 
-    elements.syncBtn.textContent = "Sync 20 Matches & Update Scores";
+    elements.syncBtn.textContent = "Sync Rolling Window & Update Scores";
     elements.syncBtn.disabled = false;
 };
 
 // --- LEADERBOARD & ADMIN ---
 async function fetchAdminFixtures() {
-    const { data } = await sbClient.from('fixtures').select('*').order('kickoff_time', { ascending: true });
+    // Admin sees everything from the last 14 days onwards so you can verify data
+    const pastDate = new Date(); pastDate.setDate(pastDate.getDate() - 14);
+    const { data } = await sbClient.from('fixtures').select('*').gte('kickoff_time', pastDate.toISOString()).order('kickoff_time', { ascending: true });
+    
     elements.adminFixtures.innerHTML = data?.map(f => `
         <div class="bg-white p-4 rounded-xl border border-gray-100 flex items-center justify-between shadow-sm">
             <span class="text-xs font-black text-blue-900 w-32 truncate">${f.home_team} v ${f.away_team}</span>
@@ -198,7 +207,7 @@ async function fetchAdminFixtures() {
             </div>
             <button onclick="updateMatchResult(${f.fixture_id})" class="bg-red-600 text-white px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest shadow-md hover:bg-red-700">Update</button>
         </div>
-    `).join('') || '<p class="text-xs text-gray-500">No fixtures found.</p>';
+    `).join('') || '<p class="text-xs text-gray-500">No active fixtures found.</p>';
 }
 
 window.updateMatchResult = async (id) => {
