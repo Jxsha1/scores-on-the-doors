@@ -108,4 +108,24 @@
                         <option value="Basketball">Basketball</option>
                     </select>
                 </div>
-                <input type="email" id="auth-email" placeholder="Email" class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-
+                <input type="email" id="auth-email" placeholder="Email" class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500" required>
+                <input type="password" id="auth-password" placeholder="Password" class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500" required>
+                <button type="submit" id="auth-submit-btn" class="w-full bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-700 transition mt-2">Sign In</button>
+            </form>
+            <button id="toggle-auth-mode" class="mt-6 text-blue-600 text-xs font-bold uppercase tracking-widest w-full text-center hover:underline">New? Create Account</button>
+            <button id="close-modal-btn" class="mt-4 w-full text-gray-400 text-xs text-center uppercase tracking-widest font-bold hover:text-gray-600">Close</button>
+        </div>
+    </div>
+
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js')
+                    .then(reg => console.log('PWA Service Worker Registered', reg.scope))
+                    .catch(err => console.error('PWA Registration Failed', err));
+            });
+        }
+    </script>
+    <script src="app.js?v=1.1.18"></script>
+</body>
+</html>
