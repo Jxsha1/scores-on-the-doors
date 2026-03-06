@@ -122,11 +122,10 @@ if (elements.submitBtn) {
 }
 
 // ==========================================
-// API INTEGRATION: ENHANCED ERROR LOGGING
+// API INTEGRATION: THE FIX (Reverted to corsproxy.io)
 // ==========================================
 if (elements.syncBtn) {
     elements.syncBtn.onclick = async () => {
-        // .trim() ensures no accidental spaces from copying!
         const apiKey = elements.apiKeyInput.value.trim();
         if (!apiKey) return alert("Please paste your API key first.");
         
@@ -143,25 +142,21 @@ if (elements.syncBtn) {
 
             const targetUrl = `https://api.football-data.org/v4/competitions/PL/matches?dateFrom=${dateFrom}&dateTo=${dateTo}`;
             
-            // Using a different proxy just in case corsproxy.io was the culprit blocking the header
-            const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
+            // Reverted to the proxy that correctly forwards headers
+            const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
 
             const response = await fetch(proxyUrl, { 
                 method: 'GET',
-                headers: { 
-                    'X-Auth-Token': apiKey,
-                    'Content-Type': 'application/json'
-                } 
+                headers: { 'X-Auth-Token': apiKey } 
             });
 
-            // ENHANCED ERROR HANDLING
             if (!response.ok) {
                 let errorMsg = `HTTP Error ${response.status}`;
                 try {
                     const errData = await response.json();
                     errorMsg = `API Error ${response.status}: ${errData.message || response.statusText}`;
                 } catch(e) {
-                    errorMsg = `API Error ${response.status}: ${response.statusText}. The proxy or API rejected the request.`;
+                    errorMsg = `API Error ${response.status}: ${response.statusText}. Please wait 60 seconds (rate limit) and try again.`;
                 }
                 throw new Error(errorMsg);
             }
