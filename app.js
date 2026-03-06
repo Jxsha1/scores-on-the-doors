@@ -278,14 +278,15 @@ if (!isStandalone && elements.pwa.banner) {
     };
 
     if (isIos() && isSafari()) {
-        // Two-step visual guide showing both the "three dots" and the "share" icon
+        // Universal iOS instructions covering Compact and Standard Safari layouts
         elements.pwa.text.innerHTML = `
-            <span class="block mb-1">1. Tap the <svg class="inline-block w-5 h-5 mx-0.5 -mt-1 text-gray-400" fill="currentColor" viewBox="0 0 24 24"><path d="M6 12a2 2 0 11-4 0 2 2 0 014 0zM12 10a2 2 0 100 4 2 2 0 000-4zM22 12a2 2 0 11-4 0 2 2 0 014 0z"/></svg> menu or Share icon <svg class="inline-block w-4 h-4 mx-0.5 -mt-1 text-blue-400" viewBox="0 0 512 512" fill="none" stroke="currentColor" stroke-width="40" stroke-linecap="round" stroke-linejoin="round"><path d="M336 176h40a40 40 0 0140 40v208a40 40 0 01-40 40H136a40 40 0 01-40-40V216a40 40 0 0140-40h40"/><path d="M336 112L256 32l-80 80"/><path d="M256 32v256"/></svg></span>
-            <span class="block">2. Scroll down & select <strong>Add to Home Screen</strong></span>
+            <span class="block mb-1 text-[11px]">1. Tap the <svg class="inline-block w-5 h-5 mx-0.5 -mt-1 text-gray-400" fill="currentColor" viewBox="0 0 24 24"><path d="M6 12a2 2 0 11-4 0 2 2 0 014 0zM12 10a2 2 0 100 4 2 2 0 000-4zM22 12a2 2 0 11-4 0 2 2 0 014 0z"/></svg> or <svg class="inline-block w-4 h-4 mx-0.5 -mt-1 text-blue-400" viewBox="0 0 512 512" fill="none" stroke="currentColor" stroke-width="40" stroke-linecap="round" stroke-linejoin="round"><path d="M336 176h40a40 40 0 0140 40v208a40 40 0 01-40 40H136a40 40 0 01-40-40V216a40 40 0 0140-40h40"/><path d="M336 112L256 32l-80 80"/><path d="M256 32v256"/></svg> icon.</span>
+            <span class="block text-[11px]">2. Select <strong>Share</strong> ➝ <strong>View more</strong> ➝ <strong>Add to Home Screen</strong></span>
         `;
-        // Make the banner slightly taller to fit the 2 lines cleanly
+        
+        // Adjust spacing for the smaller text to keep it looking clean
         elements.pwa.text.classList.remove('mt-1');
-        elements.pwa.text.classList.add('mt-2', 'leading-relaxed');
+        elements.pwa.text.classList.add('mt-2', 'leading-tight');
         
         elements.pwa.btn.classList.add('hidden'); // Hide the programmatic button
         setTimeout(showInstallBanner, 2000);
