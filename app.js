@@ -123,7 +123,7 @@ if (elements.leagues?.createBtn) {
         
         const { data: league, error: leagueErr } = await sbClient.from('leagues').insert([{ name, invite_code: inviteCode, created_by: currentUser.id }]).select().single();
         
-        if (leagueErr) return alert("Error creating league: " + leagueErr.message);
+        if (leagueErr) return alert("Error creating league. Have you run the SQL reload schema command? Details: " + leagueErr.message);
         
         const { error: memberErr } = await sbClient.from('league_members').insert([{ league_id: league.id, user_id: currentUser.id }]);
         
@@ -321,8 +321,8 @@ if (elements.syncBtn) {
 
         try {
             const today = new Date();
-            const past = new Date(today); past.setDate(today.getDate() - 14);
-            const future = new Date(today); future.setDate(today.getDate() + 21);
+            const past = new Date(today); past.setDate(today.getDate() - 30);
+            const future = new Date(today); future.setDate(today.getDate() + 30);
             const dateFrom = past.toISOString().split('T')[0];
             const dateTo = future.toISOString().split('T')[0];
 
@@ -367,14 +367,14 @@ if (elements.syncBtn) {
             alert(err.message);
         }
 
-        elements.syncBtn.textContent = "Sync Rolling Window & Update Scores";
+        elements.syncBtn.textContent = "Sync 60-Day Window & Update Scores";
         elements.syncBtn.disabled = false;
     };
 }
 
 async function fetchAdminFixtures() {
     if(!elements.adminFixtures) return;
-    const pastDate = new Date(); pastDate.setDate(pastDate.getDate() - 14);
+    const pastDate = new Date(); pastDate.setDate(pastDate.getDate() - 30);
     const { data } = await sbClient.from('fixtures').select('*').gte('kickoff_time', pastDate.toISOString()).order('kickoff_time', { ascending: true });
     
     elements.adminFixtures.innerHTML = (data || []).map(f => `
