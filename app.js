@@ -128,19 +128,15 @@ elements.syncBtn.onclick = async () => {
     elements.syncBtn.disabled = true;
 
     try {
-        // Using a reliable CORS proxy to bypass browser restrictions for the free tier
         const targetUrl = 'https://api.football-data.org/v4/competitions/PL/matches?status=SCHEDULED';
         const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
 
-        const response = await fetch(proxyUrl, {
-            headers: { 'X-Auth-Token': apiKey }
-        });
+        const response = await fetch(proxyUrl, { headers: { 'X-Auth-Token': apiKey } });
 
         if (!response.ok) throw new Error("API Error: Check your token or rate limits.");
         
         const data = await response.json();
         
-        // Transform API data to match our Supabase schema
         const fixturesToInsert = data.matches.map(match => ({
             fixture_id: match.id,
             api_id: match.id,
@@ -153,24 +149,22 @@ elements.syncBtn.onclick = async () => {
 
         if (fixturesToInsert.length === 0) {
             alert("No upcoming scheduled matches found in the API right now.");
-            elements.syncBtn.textContent = "Fetch & Sync EPL Fixtures";
+            elements.syncBtn.textContent = "Fetch & Sync Fixtures";
             elements.syncBtn.disabled = false;
             return;
         }
 
-        // Upsert into Supabase (creates new, ignores existing)
         const { error } = await sbClient.from('fixtures').upsert(fixturesToInsert, { onConflict: 'fixture_id' });
-        
         if (error) throw new Error("Database Error: " + error.message);
 
-        alert(`Success! Imported ${fixturesToInsert.length} matches into the database.`);
-        fetchAdminFixtures(); // Refresh Admin UI
+        alert(`Success! Imported ${fixturesToInsert.length} upcoming matches into the database.`);
+        fetchAdminFixtures(); 
         
     } catch (err) {
         alert(err.message);
     }
 
-    elements.syncBtn.textContent = "Fetch & Sync EPL Fixtures";
+    elements.syncBtn.textContent = "Fetch & Sync Fixtures";
     elements.syncBtn.disabled = false;
 };
 
@@ -186,7 +180,7 @@ async function fetchAdminFixtures() {
             </div>
             <button onclick="updateMatchResult(${f.fixture_id})" class="bg-red-600 text-white px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest shadow-md hover:bg-red-700">Update</button>
         </div>
-    `).join('') || '<p>No fixtures found.</p>';
+    `).join('') || '<p class="text-xs text-gray-500">No fixtures found.</p>';
 }
 
 window.updateMatchResult = async (id) => {
