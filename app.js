@@ -16,13 +16,15 @@ const elements = {
     apiKeyInput: document.getElementById('api-key-input'),
     tabs: { fix: document.getElementById('tab-fixtures'), lead: document.getElementById('tab-leaderboard'), adm: document.getElementById('tab-admin') },
     sections: { fix: document.getElementById('section-fixtures'), lead: document.getElementById('section-leaderboard'), adm: document.getElementById('section-admin') },
-    subTabs: { upcoming: document.getElementById('sub-upcoming'), results: document.getElementById('sub-results') }
+    subTabs: { upcoming: document.getElementById('sub-upcoming'), results: document.getElementById('sub-results') },
+    pwa: { banner: document.getElementById('pwa-install-banner'), btn: document.getElementById('pwa-install-btn'), close: document.getElementById('pwa-close-btn'), text: document.getElementById('pwa-install-text') }
 };
 
 let currentUser = null;
 let isSignUpMode = false;
 let hasExistingPredictions = false;
-let currentSubTab = 'upcoming'; // Tracks which sub-tab is active
+let currentSubTab = 'upcoming'; 
+let deferredPrompt; 
 
 function getBadge(pred, actual) {
     if (!pred || actual.h === null || actual.h === undefined) return '';
@@ -38,7 +40,6 @@ function switchTab(target) {
     Object.values(elements.sections).forEach(s => { if(s) s.classList.add('hidden'); });
     Object.values(elements.tabs).forEach(t => { if(t) t.classList.remove('border-blue-900', 'text-blue-900'); });
     
-    // Only show the Lock In button if we are on the 'upcoming' sub-tab of the fixtures page
     if (document.getElementById('sticky-footer')) {
         const showFooter = target === 'fix' && currentSubTab === 'upcoming';
         document.getElementById('sticky-footer').style.transform = showFooter ? 'translateY(0)' : 'translateY(150%)';
@@ -56,7 +57,6 @@ if (elements.tabs.fix) elements.tabs.fix.onclick = () => switchTab('fix');
 if (elements.tabs.lead) elements.tabs.lead.onclick = () => switchTab('lead');
 if (elements.tabs.adm) elements.tabs.adm.onclick = () => switchTab('adm');
 
-// --- SUB-TAB LOGIC ---
 if (elements.subTabs.upcoming) {
     elements.subTabs.upcoming.onclick = () => {
         currentSubTab = 'upcoming';
@@ -77,7 +77,6 @@ if (elements.subTabs.results) {
 async function fetchFixtures() {
     if (!elements.fixtures) return;
     try {
-        // Fetch ALL matches currently in the DB (Removes the 14-day limit)
         const { data: fixtures, error } = await sbClient.from('fixtures').select('*');
         if (error) throw error;
 
@@ -88,10 +87,8 @@ async function fetchFixtures() {
             if (preds) { userPreds = preds; hasExistingPredictions = userPreds.length > 0; }
         }
 
-        // Filter based on the Sub-Tab selection
         let displayFixtures = fixtures.filter(f => f.status === currentSubTab);
 
-        // Sort intelligently: Upcoming (Soonest first), Finished (Most recent first)
         displayFixtures.sort((a, b) => {
             const dateA = new Date(a.kickoff_time);
             const dateB = new Date(b.kickoff_time);
@@ -147,12 +144,10 @@ function updateButtonLabel() {
 if (elements.submitBtn) {
     elements.submitBtn.onclick = async () => {
         const preds = [];
-        // Only scrape the inputs that are actually visible in the DOM
         document.querySelectorAll('[data-id]').forEach(div => {
             const id = div.dataset.id;
             const h = document.getElementById(`h-${id}`).value;
             const a = document.getElementById(`a-${id}`).value;
-            // Ensure inputs aren't disabled (prevents trying to submit historical results)
             const isNotDisabled = !document.getElementById(`h-${id}`).disabled;
             if (h !== "" && a !== "" && isNotDisabled) {
                 preds.push({ uid: currentUser.id, fixture_id: parseInt(id), home_predicted: parseInt(h), away_predicted: parseInt(a) });
@@ -166,14 +161,10 @@ if (elements.submitBtn) {
     };
 }
 
-// ==========================================
-// API INTEGRATION
-// ==========================================
 if (elements.syncBtn) {
     elements.syncBtn.onclick = async () => {
         const apiKey = elements.apiKeyInput.value.trim();
         if (!apiKey) return alert("Please paste your API key first.");
-        
         elements.syncBtn.textContent = "Fetching Data...";
         elements.syncBtn.disabled = true;
 
@@ -181,34 +172,17 @@ if (elements.syncBtn) {
             const today = new Date();
             const past = new Date(today); past.setDate(today.getDate() - 14);
             const future = new Date(today); future.setDate(today.getDate() + 21);
-            
             const dateFrom = past.toISOString().split('T')[0];
             const dateTo = future.toISOString().split('T')[0];
 
             const targetUrl = `https://api.football-data.org/v4/competitions/PL/matches?dateFrom=${dateFrom}&dateTo=${dateTo}`;
             const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
 
-            const response = await fetch(proxyUrl, { 
-                method: 'GET',
-                headers: { 'X-Auth-Token': apiKey } 
-            });
+            const response = await fetch(proxyUrl, { method: 'GET', headers: { 'X-Auth-Token': apiKey } });
 
-            if (!response.ok) {
-                let errorMsg = `HTTP Error ${response.status}`;
-                try {
-                    const errData = await response.json();
-                    errorMsg = `API Error ${response.status}: ${errData.message || response.statusText}`;
-                } catch(e) {
-                    errorMsg = `API Error ${response.status}: ${response.statusText}. Please wait 60 seconds (rate limit) and try again.`;
-                }
-                throw new Error(errorMsg);
-            }
-
+            if (!response.ok) throw new Error(`API Error: ${response.status}`);
             const data = await response.json();
-            
-            if (!data.matches || data.matches.length === 0) {
-                throw new Error(`No matches found between ${dateFrom} and ${dateTo}.`);
-            }
+            if (!data.matches || data.matches.length === 0) throw new Error("No matches found.");
 
             const fixturesToInsert = data.matches.map(match => ({
                 fixture_id: match.id,
@@ -283,6 +257,60 @@ async function fetchLeaderboard() {
             <td class="px-6 py-5 text-right font-black text-blue-600 text-lg">${u.total_points || 0}</td>
         </tr>
     `).join('') || '';
+}
+
+// --- PWA SMART INSTALL BANNER LOGIC ---
+const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+
+if (!isStandalone && elements.pwa.banner) {
+    // 1. Android / Chrome
+    window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        setTimeout(showInstallBanner, 2000); 
+    });
+
+    // 2. Apple / iOS Safari
+    const isIos = () => /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
+    const isSafari = () => {
+        const ua = window.navigator.userAgent.toLowerCase();
+        return /safari/.test(ua) && !/chrome|crios|fxios/.test(ua);
+    };
+
+    if (isIos() && isSafari()) {
+        // Two-step visual guide showing both the "three dots" and the "share" icon
+        elements.pwa.text.innerHTML = `
+            <span class="block mb-1">1. Tap the <svg class="inline-block w-5 h-5 mx-0.5 -mt-1 text-gray-400" fill="currentColor" viewBox="0 0 24 24"><path d="M6 12a2 2 0 11-4 0 2 2 0 014 0zM12 10a2 2 0 100 4 2 2 0 000-4zM22 12a2 2 0 11-4 0 2 2 0 014 0z"/></svg> menu or Share icon <svg class="inline-block w-4 h-4 mx-0.5 -mt-1 text-blue-400" viewBox="0 0 512 512" fill="none" stroke="currentColor" stroke-width="40" stroke-linecap="round" stroke-linejoin="round"><path d="M336 176h40a40 40 0 0140 40v208a40 40 0 01-40 40H136a40 40 0 01-40-40V216a40 40 0 0140-40h40"/><path d="M336 112L256 32l-80 80"/><path d="M256 32v256"/></svg></span>
+            <span class="block">2. Scroll down & select <strong>Add to Home Screen</strong></span>
+        `;
+        // Make the banner slightly taller to fit the 2 lines cleanly
+        elements.pwa.text.classList.remove('mt-1');
+        elements.pwa.text.classList.add('mt-2', 'leading-relaxed');
+        
+        elements.pwa.btn.classList.add('hidden'); // Hide the programmatic button
+        setTimeout(showInstallBanner, 2000);
+    }
+
+    function showInstallBanner() {
+        elements.pwa.banner.classList.remove('hidden');
+        setTimeout(() => elements.pwa.banner.classList.remove('translate-y-full'), 100);
+    }
+
+    elements.pwa.close.onclick = () => {
+        elements.pwa.banner.classList.add('translate-y-full');
+        setTimeout(() => elements.pwa.banner.classList.add('hidden'), 500);
+    };
+
+    elements.pwa.btn.onclick = async () => {
+        if (deferredPrompt) {
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+            if (outcome === 'accepted') {
+                elements.pwa.banner.classList.add('translate-y-full');
+            }
+            deferredPrompt = null;
+        }
+    };
 }
 
 if (elements.loginBtn) elements.loginBtn.onclick = () => currentUser ? sbClient.auth.signOut() : elements.authModal.classList.remove('hidden');

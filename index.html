@@ -16,7 +16,7 @@
         @keyframes fadeIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
     </style>
 </head>
-<body class="bg-gray-100 text-gray-900 font-sans antialiased">
+<body class="bg-gray-100 text-gray-900 font-sans antialiased overflow-x-hidden">
 
     <nav class="bg-blue-900 text-white p-4 shadow-md flex justify-between items-center">
         <div class="flex items-center gap-3">
@@ -38,7 +38,6 @@
                 <button id="sub-upcoming" class="px-5 py-1.5 text-xs font-bold bg-white text-blue-900 rounded-full shadow-sm transition-all">To Predict</button>
                 <button id="sub-results" class="px-5 py-1.5 text-xs font-bold text-gray-500 hover:text-blue-900 rounded-full transition-all">Results</button>
             </div>
-
             <p id="user-status-msg" class="text-center text-sm text-gray-500 mb-4 italic">Loading matches...</p>
             <div id="fixtures-container" class="space-y-6"></div>
         </section>
@@ -63,7 +62,6 @@
                     Sync Rolling Window & Update Scores
                 </button>
             </div>
-
             <div class="bg-red-50 p-4 rounded-xl border border-red-200 mb-4 shadow-sm">
                 <h3 class="font-bold text-red-800 mb-1 text-sm">Manual Score Entry</h3>
                 <p class="text-xs text-red-600">Enter final results here to calculate points manually.</p>
@@ -77,6 +75,22 @@
             </button>
         </div>
     </main>
+
+    <div id="pwa-install-banner" class="hidden fixed bottom-0 left-0 right-0 bg-blue-900 text-white p-5 shadow-[0_-10px_30px_rgba(0,0,0,0.4)] z-50 flex justify-between items-center transform translate-y-full transition-transform duration-500 rounded-t-3xl max-w-md mx-auto border-t border-blue-700">
+        <div class="flex items-center gap-4">
+            <img src="SOTD_Logo.png" class="w-14 h-14 rounded-2xl bg-white p-1 shadow-inner" onerror="this.src='https://via.placeholder.com/40'">
+            <div>
+                <p class="font-black text-sm tracking-tight">Scores on the Doors</p>
+                <p class="text-xs text-blue-200 mt-1" id="pwa-install-text">Install our free app for the best experience!</p>
+            </div>
+        </div>
+        <div class="flex items-center gap-2">
+            <button id="pwa-install-btn" class="bg-white text-blue-900 px-5 py-2.5 rounded-xl font-bold text-xs shadow-lg hover:bg-gray-100 transition-all active:scale-95">Install</button>
+            <button id="pwa-close-btn" class="p-2 text-blue-300 hover:text-white transition-colors">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+        </div>
+    </div>
 
     <div id="auth-modal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center items-center z-50">
         <div class="bg-white p-8 rounded-3xl shadow-2xl w-96 max-w-[95%] max-h-[90vh] overflow-y-auto">
@@ -112,6 +126,6 @@
             });
         }
     </script>
-    <script src="app.js?v=1.1.13"></script>
+    <script src="app.js?v=1.1.15"></script>
 </body>
 </html>
