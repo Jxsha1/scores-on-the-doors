@@ -76,6 +76,28 @@ const sportConfig = {
     'Rugby': ['Union (Six Nations)', 'League (NRL)', 'World Cup']
 };
 
+// API Connection Data Dictionary
+const competitionConfig = {
+    'Football': {
+        'Premier League': { api: 'football-data', id: 'PL' },
+        'World Cup': { api: 'football-data', id: 'WC' },
+        'Champions League': { api: 'football-data', id: 'CL' }
+    },
+    'Basketball': {
+        'NBA': { api: 'api-sports', endpoint: 'https://v1.basketball.api-sports.io/games', params: 'league=12&season=2023-2024' },
+        'EuroLeague': { api: 'api-sports', endpoint: 'https://v1.basketball.api-sports.io/games', params: 'league=116&season=2023-2024' }
+    },
+    'Am. Football': {
+        'NFL': { api: 'api-sports', endpoint: 'https://v1.american-football.api-sports.io/games', params: 'league=1&season=2023' },
+        'NCAA': { api: 'api-sports', endpoint: 'https://v1.american-football.api-sports.io/games', params: 'league=2&season=2023' }
+    },
+    'Rugby': {
+        'Union (Six Nations)': { api: 'api-sports', endpoint: 'https://v1.rugby.api-sports.io/games', params: 'league=16&season=2024' },
+        'League (NRL)': { api: 'api-sports', endpoint: 'https://v1.rugby.api-sports.io/games', params: 'league=26&season=2024' },
+        'World Cup': { api: 'api-sports', endpoint: 'https://v1.rugby.api-sports.io/games', params: 'league=15&season=2023' }
+    }
+};
+
 const sportThemes = {
     'Football': { 
         nav: 'bg-blue-900', container: 'bg-blue-950', activeBtn: 'bg-blue-800 text-white', inactiveBtn: 'text-gray-400 hover:bg-blue-800', 
@@ -147,11 +169,34 @@ function renderCompetitionFilters() {
 
 function initCreateLeagueForm() {
     if (elements.leagues.createSport && elements.leagues.createComp) {
-        elements.leagues.createSport.onchange = (e) => {
-            const comps = sportConfig[e.target.value] || [];
+        const updateLeagueComps = (sport) => {
+            const comps = sportConfig[sport] || [];
             elements.leagues.createComp.innerHTML = comps.map(c => `<option value="${c}">${c}</option>`).join('');
         };
+        elements.leagues.createSport.onchange = (e) => updateLeagueComps(e.target.value);
+        updateLeagueComps(elements.leagues.createSport.value);
     }
+}
+
+function initAdminSyncForm() {
+    const adminSport = document.getElementById('admin-sync-sport');
+    const adminComp = document.getElementById('admin-sync-comp');
+    if (adminSport && adminComp) {
+        const updateAdminComps = (sport) => {
+            const comps = sportConfig[sport] || [];
+            adminComp.innerHTML = comps.map(c => `<option value="${c}">${c}</option>`).join('');
+        };
+        adminSport.onchange = (e) => updateAdminComps(e.target.value);
+        updateAdminComps(adminSport.value);
+    }
+}
+
+function getShiftedFixtureId(originalId, sport) {
+    const baseId = parseInt(originalId);
+    if (sport === 'Basketball') return baseId + 10000000;
+    if (sport === 'Am. Football') return baseId + 20000000;
+    if (sport === 'Rugby') return baseId + 30000000;
+    return baseId; 
 }
 
 function getBadge(pred, actual) {
@@ -548,59 +593,110 @@ if (elements.syncBtn) {
     elements.syncBtn.onclick = async () => {
         const apiKey = elements.apiKeyInput?.value?.trim();
         if (!apiKey) return alert("Please paste your API key first.");
+        
+        const sportSelect = document.getElementById('admin-sync-sport')?.value || 'Football';
+        const compSelect = document.getElementById('admin-sync-comp')?.value || 'Premier League';
+        const config = competitionConfig[sportSelect][compSelect];
+
         elements.syncBtn.textContent = "Fetching Data...";
         elements.syncBtn.disabled = true;
 
         try {
-            const today = new Date();
-            const past = new Date(today); past.setDate(today.getDate() - 30);
-            const future = new Date(today); future.setDate(today.getDate() + 30);
-            const dateFrom = past.toISOString().split('T')[0];
-            const dateTo = future.toISOString().split('T')[0];
+            let fixturesToInsert = [];
+            let finishedMatches = [];
 
-            const targetUrl = `https://api.football-data.org/v4/competitions/PL/matches?dateFrom=${dateFrom}&dateTo=${dateTo}`;
-            const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
+            if (config.api === 'football-data') {
+                const today = new Date();
+                const past = new Date(today); past.setDate(today.getDate() - 30);
+                const future = new Date(today); future.setDate(today.getDate() + 30);
+                const dateFrom = past.toISOString().split('T')[0];
+                const dateTo = future.toISOString().split('T')[0];
 
-            const response = await fetch(proxyUrl, { method: 'GET', headers: { 'X-Auth-Token': apiKey } });
+                const targetUrl = `https://api.football-data.org/v4/competitions/${config.id}/matches?dateFrom=${dateFrom}&dateTo=${dateTo}`;
+                const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
 
-            if (!response.ok) throw new Error(`API Error: ${response.status}`);
-            const data = await response.json();
-            if (!data.matches || data.matches.length === 0) throw new Error("No matches found.");
+                const response = await fetch(proxyUrl, { method: 'GET', headers: { 'X-Auth-Token': apiKey } });
+                if (!response.ok) throw new Error(`Football-Data API Error: ${response.status}`);
+                const data = await response.json();
+                if (!data.matches || data.matches.length === 0) throw new Error("No matches found.");
 
-            const fixturesToInsert = data.matches.map(match => ({
-                fixture_id: match.id,
-                api_id: match.id,
-                sport: 'Football',
-                competition: 'Premier League',
-                home_team: match.homeTeam?.shortName || match.homeTeam?.name || "Unknown Team",
-                away_team: match.awayTeam?.shortName || match.awayTeam?.name || "Unknown Team",
-                kickoff_time: match.utcDate,
-                status: match.status === 'FINISHED' ? 'finished' : 'upcoming',
-                home_score_actual: match.status === 'FINISHED' ? match.score?.fullTime?.home : null,
-                away_score_actual: match.status === 'FINISHED' ? match.score?.fullTime?.away : null
-            }));
+                fixturesToInsert = data.matches.map(match => ({
+                    fixture_id: getShiftedFixtureId(match.id, sportSelect),
+                    api_id: match.id,
+                    sport: sportSelect,
+                    competition: compSelect,
+                    home_team: match.homeTeam?.shortName || match.homeTeam?.name || "Unknown",
+                    away_team: match.awayTeam?.shortName || match.awayTeam?.name || "Unknown",
+                    kickoff_time: match.utcDate,
+                    status: match.status === 'FINISHED' ? 'finished' : 'upcoming',
+                    home_score_actual: match.status === 'FINISHED' ? match.score?.fullTime?.home : null,
+                    away_score_actual: match.status === 'FINISHED' ? match.score?.fullTime?.away : null
+                }));
+
+                finishedMatches = data.matches.filter(m => m.status === 'FINISHED').map(m => ({
+                    id: getShiftedFixtureId(m.id, sportSelect), 
+                    home: m.score?.fullTime?.home || 0, 
+                    away: m.score?.fullTime?.away || 0
+                }));
+
+            } else if (config.api === 'api-sports') {
+                const targetUrl = `${config.endpoint}?${config.params}`;
+                const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
+                
+                const response = await fetch(proxyUrl, { method: 'GET', headers: { 'x-apisports-key': apiKey } });
+                if (!response.ok) throw new Error(`API-Sports Error: ${response.status}`);
+                const data = await response.json();
+                if (!data.response || data.response.length === 0) throw new Error("No matches found.");
+
+                fixturesToInsert = data.response.map(match => {
+                    const isFinished = match.status?.short === 'FT' || match.status?.short === 'AOT' || match.status?.short === 'PEN';
+                    const hScore = match.scores?.home?.total ?? match.scores?.home ?? null;
+                    const aScore = match.scores?.away?.total ?? match.scores?.away ?? null;
+
+                    return {
+                        fixture_id: getShiftedFixtureId(match.id, sportSelect),
+                        api_id: match.id,
+                        sport: sportSelect,
+                        competition: compSelect,
+                        home_team: match.teams?.home?.name || "Unknown",
+                        away_team: match.teams?.away?.name || "Unknown",
+                        kickoff_time: match.date,
+                        status: isFinished ? 'finished' : 'upcoming',
+                        home_score_actual: isFinished ? hScore : null,
+                        away_score_actual: isFinished ? aScore : null
+                    };
+                });
+
+                finishedMatches = data.response.filter(m => {
+                    const s = m.status?.short;
+                    return s === 'FT' || s === 'AOT' || s === 'PEN';
+                }).map(m => ({
+                    id: getShiftedFixtureId(m.id, sportSelect), 
+                    home: m.scores?.home?.total ?? m.scores?.home ?? 0, 
+                    away: m.scores?.away?.total ?? m.scores?.away ?? 0
+                }));
+            }
 
             const { error } = await sbClient.from('fixtures').upsert(fixturesToInsert, { onConflict: 'fixture_id' });
             if (error) throw new Error("Database Error: " + error.message);
 
             elements.syncBtn.textContent = "Calculating Points...";
-            const finishedMatches = data.matches.filter(m => m.status === 'FINISHED');
             for (const match of finishedMatches) {
                 await sbClient.rpc('calculate_fixture_points', {
                     target_fixture_id: match.id,
-                    final_home: match.score?.fullTime?.home || 0,
-                    final_away: match.score?.fullTime?.away || 0
+                    final_home: match.home,
+                    final_away: match.away
                 });
             }
 
-            alert(`Success! Imported ${fixturesToInsert.length} matches.`);
+            alert(`Success! Imported ${fixturesToInsert.length} matches for ${compSelect}.`);
             fetchAdminFixtures(); 
             
         } catch (err) {
             alert(err.message);
         }
 
-        elements.syncBtn.textContent = "Sync 60-Day Window & Update Scores";
+        elements.syncBtn.textContent = "Fetch API & Update Scores";
         elements.syncBtn.disabled = false;
     };
 }
@@ -612,12 +708,15 @@ async function fetchAdminFixtures() {
     
     elements.adminFixtures.innerHTML = (data || []).map(f => `
         <div class="bg-white p-4 rounded-xl border border-gray-100 flex items-center justify-between shadow-sm">
-            <span class="text-xs font-black text-blue-900 w-32 truncate">${f.home_team} v ${f.away_team}</span>
+            <div class="flex flex-col flex-1 truncate pr-2">
+                <span class="text-xs font-black text-blue-900 truncate">${f.home_team} v ${f.away_team}</span>
+                <span class="text-[9px] text-gray-400 font-bold uppercase tracking-wider">${f.sport} • ${f.competition || 'All'}</span>
+            </div>
             <div class="flex gap-1">
                 <input type="number" id="adm-h-${f.fixture_id}" class="w-10 h-10 text-center bg-gray-50 border rounded-lg font-bold" value="${f.home_score_actual !== null ? f.home_score_actual : ''}">
                 <input type="number" id="adm-a-${f.fixture_id}" class="w-10 h-10 text-center bg-gray-50 border rounded-lg font-bold" value="${f.away_score_actual !== null ? f.away_score_actual : ''}">
             </div>
-            <button onclick="updateMatchResult(${f.fixture_id})" class="bg-red-600 text-white px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest shadow-md hover:bg-red-700">Update</button>
+            <button onclick="updateMatchResult(${f.fixture_id})" class="bg-red-600 text-white px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest shadow-md hover:bg-red-700 ml-2">Update</button>
         </div>
     `).join('') || '<p class="text-xs text-gray-500">No active fixtures found.</p>';
 }
@@ -727,6 +826,7 @@ if (elements.authForm) {
 // Initialise core functionalities
 renderCompetitionFilters();
 initCreateLeagueForm();
+initAdminSyncForm();
 
 sbClient?.auth.onAuthStateChange((_, session) => {
     currentUser = session?.user || null;
