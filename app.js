@@ -19,6 +19,7 @@ const elements = {
     status: document.getElementById('user-status-msg'),
     syncBtn: document.getElementById('sync-api-btn'),
     apiKeyInput: document.getElementById('api-key-input'),
+    competitionFilters: document.getElementById('competition-filters'),
     tabs: { 
         fix: document.getElementById('tab-fixtures'), 
         lead: document.getElementById('tab-leaderboard'), 
@@ -39,6 +40,8 @@ const elements = {
         createBtn: document.getElementById('create-league-btn'),
         joinBtn: document.getElementById('join-league-btn'),
         createName: document.getElementById('new-league-name'),
+        createSport: document.getElementById('new-league-sport'),
+        createComp: document.getElementById('new-league-competition'),
         joinCode: document.getElementById('join-league-code'),
         container: document.getElementById('my-leagues-container'),
         filter: document.getElementById('leaderboard-filter')
@@ -61,11 +64,61 @@ const elements = {
     }
 };
 
+const sportConfig = {
+    'Football': ['Premier League', 'World Cup', 'Champions League'],
+    'Basketball': ['NBA', 'EuroLeague'],
+    'Am. Football': ['NFL', 'NCAA'],
+    'Rugby': ['Union (Six Nations)', 'League (NRL)', 'World Cup']
+};
+
 let currentUser = null;
 let isSignUpMode = false;
 let hasExistingPredictions = false;
 let currentSubTab = 'upcoming'; 
+let currentSport = 'Football';
+let currentCompetition = sportConfig['Football'][0];
 let deferredPrompt; 
+
+window.setSport = (sport) => {
+    currentSport = sport;
+    currentCompetition = sportConfig[sport][0]; 
+    
+    ['Football', 'Basketball', 'Am. Football', 'Rugby'].forEach(s => {
+        const safeId = s.replace('. ', '');
+        const btn = document.getElementById(`sport-btn-${safeId}`);
+        if(btn) {
+            btn.className = s === sport 
+                ? "px-6 py-3 text-white bg-blue-800 transition-colors" 
+                : "px-6 py-3 hover:bg-blue-800 transition-colors";
+        }
+    });
+
+    renderCompetitionFilters();
+    fetchFixtures();
+};
+
+window.setCompetition = (comp) => {
+    currentCompetition = comp;
+    renderCompetitionFilters();
+    fetchFixtures();
+};
+
+function renderCompetitionFilters() {
+    if(!elements.competitionFilters) return;
+    const comps = sportConfig[currentSport] || [];
+    elements.competitionFilters.innerHTML = comps.map(comp => `
+        <button onclick="setCompetition('${comp}')" class="whitespace-nowrap px-4 py-2 text-xs font-bold rounded-xl transition-all ${currentCompetition === comp ? 'bg-blue-900 text-white shadow-md' : 'bg-white text-gray-500 border border-gray-200 hover:border-blue-900'}">${comp}</button>
+    `).join('');
+}
+
+function initCreateLeagueForm() {
+    if (elements.leagues.createSport && elements.leagues.createComp) {
+        elements.leagues.createSport.onchange = (e) => {
+            const comps = sportConfig[e.target.value] || [];
+            elements.leagues.createComp.innerHTML = comps.map(c => `<option value="${c}">${c}</option>`).join('');
+        };
+    }
+}
 
 function getBadge(pred, actual) {
     if (!pred || actual?.h === null || actual?.h === undefined) return '';
@@ -127,11 +180,13 @@ if (elements.leagues?.createBtn) {
     elements.leagues.createBtn.onclick = async () => {
         if (!currentUser) return alert("Please sign in to create a league.");
         const name = elements.leagues.createName.value.trim();
+        const sport = elements.leagues.createSport.value;
+        const competition = elements.leagues.createComp.value;
         if (!name) return alert("Please enter a league name.");
         
         const inviteCode = generateInviteCode();
         
-        const { data: league, error: leagueErr } = await sbClient.from('leagues').insert([{ name, invite_code: inviteCode, created_by: currentUser.id }]).select().single();
+        const { data: league, error: leagueErr } = await sbClient.from('leagues').insert([{ name, invite_code: inviteCode, created_by: currentUser.id, sport, competition }]).select().single();
         
         if (leagueErr) return alert("Error creating league. Details: " + leagueErr.message);
         
@@ -300,14 +355,16 @@ async function fetchMyLeagues() {
 
         return `
         <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex flex-col gap-2 hover:border-blue-300 hover:shadow-md transition-all group">
-            <div class="flex justify-between items-center w-full">
+            <div class="flex justify-between items-start w-full">
                 <div onclick="viewLeague('${l.id}')" class="flex flex-col cursor-pointer flex-1">
                     <span class="font-bold text-sm text-blue-900 group-hover:text-blue-600 transition-colors">${l.name}</span>
-                    <span class="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-0.5">Tap to view leaderboard</span>
+                    <span class="text-[9px] text-gray-500 font-bold uppercase tracking-wider mt-1">${l.sport} • ${l.competition || 'All'}</span>
                 </div>
-                <div class="flex items-center gap-1">
-                    <span class="bg-blue-50 text-blue-700 px-3 py-1 rounded-lg text-xs font-black tracking-widest border border-blue-100">CODE: ${l.invite_code}</span>
-                    ${settingsBtn}
+                <div class="flex flex-col items-end gap-2">
+                    <div class="flex items-center gap-1">
+                        <span class="bg-blue-50 text-blue-700 px-3 py-1 rounded-lg text-xs font-black tracking-widest border border-blue-100">${l.invite_code}</span>
+                        ${settingsBtn}
+                    </div>
                 </div>
             </div>
         </div>
@@ -371,7 +428,11 @@ async function fetchFixtures() {
             if (preds) { userPreds = preds; hasExistingPredictions = userPreds.length > 0; }
         }
 
-        let displayFixtures = (fixtures || []).filter(f => f.status === currentSubTab);
+        let displayFixtures = (fixtures || []).filter(f => 
+            f.status === currentSubTab && 
+            f.sport === currentSport &&
+            (f.competition === currentCompetition || !f.competition)
+        );
 
         displayFixtures.sort((a, b) => {
             const dateA = new Date(a.kickoff_time);
@@ -401,7 +462,7 @@ async function fetchFixtures() {
                 </div>
                 ${isLocked ? `<div class="mt-4 pt-4 border-t border-gray-50 text-center text-[10px] font-bold text-gray-400">Actual Result: <span class="text-blue-900">${f.home_score_actual} - ${f.away_score_actual}</span></div>` : ''}
             </div>`;
-        }).join('') || `<p class="text-center py-10 text-gray-400">No ${currentSubTab === 'upcoming' ? 'upcoming' : 'completed'} matches found.</p>`;
+        }).join('') || `<p class="text-center py-10 text-gray-400">No matches found for ${currentCompetition}.</p>`;
         
         updateButtonLabel();
 
@@ -475,7 +536,8 @@ if (elements.syncBtn) {
             const fixturesToInsert = data.matches.map(match => ({
                 fixture_id: match.id,
                 api_id: match.id,
-                sport: 'EPL',
+                sport: 'Football',
+                competition: 'Premier League',
                 home_team: match.homeTeam?.shortName || match.homeTeam?.name || "Unknown Team",
                 away_team: match.awayTeam?.shortName || match.awayTeam?.name || "Unknown Team",
                 kickoff_time: match.utcDate,
@@ -627,6 +689,10 @@ if (elements.authForm) {
         if (result.error) alert(result.error.message); else elements.authModal?.classList.add('hidden');
     };
 }
+
+// Initialise core functionalities
+renderCompetitionFilters();
+initCreateLeagueForm();
 
 sbClient?.auth.onAuthStateChange((_, session) => {
     currentUser = session?.user || null;
