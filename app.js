@@ -20,6 +20,11 @@ const elements = {
     syncBtn: document.getElementById('sync-api-btn'),
     apiKeyInput: document.getElementById('api-key-input'),
     competitionFilters: document.getElementById('competition-filters'),
+    theme: {
+        nav: document.getElementById('main-nav'),
+        container: document.getElementById('sport-nav-container'),
+        icon: document.getElementById('header-sport-icon')
+    },
     tabs: { 
         fix: document.getElementById('tab-fixtures'), 
         lead: document.getElementById('tab-leaderboard'), 
@@ -71,6 +76,25 @@ const sportConfig = {
     'Rugby': ['Union (Six Nations)', 'League (NRL)', 'World Cup']
 };
 
+const sportThemes = {
+    'Football': { 
+        nav: 'bg-blue-900', container: 'bg-blue-950', activeBtn: 'bg-blue-800 text-white', inactiveBtn: 'text-gray-400 hover:bg-blue-800', 
+        icon: '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10zM12 6l-3 4h6l-3-4zM6 12l2-3M18 12l-2-3M7 16l3-2M17 16l-3-2M12 18v-4"></path></svg>' 
+    },
+    'Basketball': { 
+        nav: 'bg-orange-600', container: 'bg-orange-700', activeBtn: 'bg-orange-800 text-white', inactiveBtn: 'text-orange-200 hover:bg-orange-800', 
+        icon: '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10zM2 12h20M12 2v20M7.5 4.5a10.5 10.5 0 000 15M16.5 4.5a10.5 10.5 0 010 15"></path></svg>' 
+    },
+    'Am. Football': { 
+        nav: 'bg-red-900', container: 'bg-red-950', activeBtn: 'bg-red-800 text-white', inactiveBtn: 'text-red-300 hover:bg-red-800', 
+        icon: '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14V8c0-3.866-3.134-7-7-7S5 4.134 5 8v6a3 3 0 00-3 3v2h20v-2a3 3 0 00-3-3zM5 14h14M8 14v4M16 14v4"></path></svg>' 
+    },
+    'Rugby': { 
+        nav: 'bg-emerald-800', container: 'bg-emerald-900', activeBtn: 'bg-emerald-700 text-white', inactiveBtn: 'text-emerald-200 hover:bg-emerald-700', 
+        icon: '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-3-9h6m-4-2v4"></path></svg>' 
+    }
+};
+
 let currentUser = null;
 let isSignUpMode = false;
 let hasExistingPredictions = false;
@@ -83,13 +107,23 @@ window.setSport = (sport) => {
     currentSport = sport;
     currentCompetition = sportConfig[sport][0]; 
     
+    const theme = sportThemes[sport];
+    
+    if (elements.theme.nav) {
+        elements.theme.nav.className = `text-white p-4 shadow-md flex justify-between items-center relative z-30 transition-colors duration-300 ${theme.nav}`;
+    }
+    if (elements.theme.container) {
+        elements.theme.container.className = `flex overflow-x-auto whitespace-nowrap text-[10px] font-black tracking-widest no-scrollbar shadow-inner sticky top-0 z-20 transition-colors duration-300 ${theme.container}`;
+    }
+    if (elements.theme.icon) {
+        elements.theme.icon.innerHTML = theme.icon;
+    }
+
     ['Football', 'Basketball', 'Am. Football', 'Rugby'].forEach(s => {
         const safeId = s.replace('. ', '');
         const btn = document.getElementById(`sport-btn-${safeId}`);
         if(btn) {
-            btn.className = s === sport 
-                ? "px-6 py-3 text-white bg-blue-800 transition-colors" 
-                : "px-6 py-3 hover:bg-blue-800 transition-colors";
+            btn.className = `px-6 py-3 transition-colors duration-300 ${s === sport ? theme.activeBtn : theme.inactiveBtn}`;
         }
     });
 

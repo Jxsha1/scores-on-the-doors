@@ -20,19 +20,24 @@
 </head>
 <body class="bg-gray-100 text-gray-900 font-sans antialiased overflow-x-hidden">
 
-    <nav class="bg-blue-900 text-white p-4 shadow-md flex justify-between items-center relative z-30">
+    <nav id="main-nav" class="bg-blue-900 text-white p-4 shadow-md flex justify-between items-center relative z-30 transition-colors duration-300">
         <div class="flex items-center gap-3">
             <img src="SOTD_Logo.png" alt="SOTD Logo" class="w-10 h-10 rounded-full bg-white p-1 object-contain shadow-sm" onerror="this.src='https://via.placeholder.com/40'">
-            <h1 class="text-xl font-bold tracking-tight">Scores on the Doors</h1>
+            <div class="flex items-center gap-2">
+                <h1 class="text-xl font-bold tracking-tight">Scores on the Doors</h1>
+                <div id="header-sport-icon" class="text-white opacity-80">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10zM12 6l-3 4h6l-3-4zM6 12l2-3M18 12l-2-3M7 16l3-2M17 16l-3-2M12 18v-4"></path></svg>
+                </div>
+            </div>
         </div>
         <button id="login-btn" class="bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded text-sm font-semibold transition text-white">Sign In</button>
     </nav>
 
-    <div class="bg-blue-950 text-gray-400 flex overflow-x-auto whitespace-nowrap text-[10px] font-black tracking-widest no-scrollbar shadow-inner sticky top-0 z-20">
-        <button onclick="setSport('Football')" id="sport-btn-Football" class="px-6 py-3 text-white bg-blue-800 transition-colors">FOOTBALL</button>
-        <button onclick="setSport('Basketball')" id="sport-btn-Basketball" class="px-6 py-3 hover:bg-blue-800 transition-colors">BASKETBALL</button>
-        <button onclick="setSport('Am. Football')" id="sport-btn-AmFootball" class="px-6 py-3 hover:bg-blue-800 transition-colors">AM. FOOTBALL</button>
-        <button onclick="setSport('Rugby')" id="sport-btn-Rugby" class="px-6 py-3 hover:bg-blue-800 transition-colors">RUGBY</button>
+    <div id="sport-nav-container" class="bg-blue-950 flex overflow-x-auto whitespace-nowrap text-[10px] font-black tracking-widest no-scrollbar shadow-inner sticky top-0 z-20 transition-colors duration-300">
+        <button onclick="setSport('Football')" id="sport-btn-Football" class="px-6 py-3 text-white bg-blue-800 transition-colors duration-300">FOOTBALL</button>
+        <button onclick="setSport('Basketball')" id="sport-btn-Basketball" class="px-6 py-3 text-gray-400 hover:bg-blue-800 transition-colors duration-300">BASKETBALL</button>
+        <button onclick="setSport('Am. Football')" id="sport-btn-AmFootball" class="px-6 py-3 text-gray-400 hover:bg-blue-800 transition-colors duration-300">AM. FOOTBALL</button>
+        <button onclick="setSport('Rugby')" id="sport-btn-Rugby" class="px-6 py-3 text-gray-400 hover:bg-blue-800 transition-colors duration-300">RUGBY</button>
     </div>
 
     <main class="max-w-md mx-auto mt-4 p-4 pb-32">
@@ -204,6 +209,6 @@
             });
         }
     </script>
-    <script src="app.js?v=1.5.0"></script>
+    <script src="app.js?v=1.6.0"></script>
 </body>
 </html>
