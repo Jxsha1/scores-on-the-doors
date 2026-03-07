@@ -76,7 +76,6 @@ const sportConfig = {
     'Rugby': ['Union (Six Nations)', 'League (NRL)', 'World Cup']
 };
 
-// API Connection Data Dictionary
 const competitionConfig = {
     'Football': {
         'Premier League': { api: 'football-data', id: 'PL' },
@@ -84,16 +83,16 @@ const competitionConfig = {
         'Champions League': { api: 'football-data', id: 'CL' }
     },
     'Basketball': {
-        'NBA': { api: 'api-sports', endpoint: 'https://v1.basketball.api-sports.io/games', params: 'league=12&season=2023-2024' },
-        'EuroLeague': { api: 'api-sports', endpoint: 'https://v1.basketball.api-sports.io/games', params: 'league=116&season=2023-2024' }
+        'NBA': { api: 'api-sports', endpoint: 'https://v1.basketball.api-sports.io/games', params: 'league=12&season=2025-2026' },
+        'EuroLeague': { api: 'api-sports', endpoint: 'https://v1.basketball.api-sports.io/games', params: 'league=116&season=2025-2026' }
     },
     'Am. Football': {
-        'NFL': { api: 'api-sports', endpoint: 'https://v1.american-football.api-sports.io/games', params: 'league=1&season=2023' },
-        'NCAA': { api: 'api-sports', endpoint: 'https://v1.american-football.api-sports.io/games', params: 'league=2&season=2023' }
+        'NFL': { api: 'api-sports', endpoint: 'https://v1.american-football.api-sports.io/games', params: 'league=1&season=2025' },
+        'NCAA': { api: 'api-sports', endpoint: 'https://v1.american-football.api-sports.io/games', params: 'league=2&season=2025' }
     },
     'Rugby': {
-        'Union (Six Nations)': { api: 'api-sports', endpoint: 'https://v1.rugby.api-sports.io/games', params: 'league=16&season=2024' },
-        'League (NRL)': { api: 'api-sports', endpoint: 'https://v1.rugby.api-sports.io/games', params: 'league=26&season=2024' },
+        'Union (Six Nations)': { api: 'api-sports', endpoint: 'https://v1.rugby.api-sports.io/games', params: 'league=16&season=2026' },
+        'League (NRL)': { api: 'api-sports', endpoint: 'https://v1.rugby.api-sports.io/games', params: 'league=26&season=2026' },
         'World Cup': { api: 'api-sports', endpoint: 'https://v1.rugby.api-sports.io/games', params: 'league=15&season=2023' }
     }
 };
@@ -641,9 +640,9 @@ if (elements.syncBtn) {
 
             } else if (config.api === 'api-sports') {
                 const targetUrl = `${config.endpoint}?${config.params}`;
-                const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
+                // We deliberately skip corsproxy.io here as API-Sports supports native browser fetching
+                const response = await fetch(targetUrl, { method: 'GET', headers: { 'x-apisports-key': apiKey } });
                 
-                const response = await fetch(proxyUrl, { method: 'GET', headers: { 'x-apisports-key': apiKey } });
                 if (!response.ok) throw new Error(`API-Sports Error: ${response.status}`);
                 const data = await response.json();
                 if (!data.response || data.response.length === 0) throw new Error("No matches found.");
