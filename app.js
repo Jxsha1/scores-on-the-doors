@@ -598,7 +598,6 @@ if (elements.syncBtn) {
             const today = new Date();
             const maxFutureDate = new Date(today); 
             maxFutureDate.setDate(today.getDate() + 14);
-            const maxTimestamp = maxFutureDate.getTime();
 
             let fixturesToInsert = [];
             let finishedMatches = [];
@@ -644,48 +643,44 @@ if (elements.syncBtn) {
                 ];
                 
                 for (let url of endpoints) {
-                    const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
-                    const response = await fetch(proxyUrl, { method: 'GET' });
+                    const response = await fetch(url, { method: 'GET' });
                     
                     if (!response.ok) throw new Error(`TheSportsDB Error: ${response.status}`);
                     const data = await response.json();
                     
                     if (data.events) {
                         data.events.forEach(match => {
-                            if (!match.dateEvent) return;
+                            const hScore = match.intHomeScore;
+                            const aScore = match.intAwayScore;
+                            const isFinished = hScore !== null && hScore !== "" && typeof hScore !== 'undefined';
                             
                             const kickoff = match.strTimestamp || `${match.dateEvent}T${match.strTime || '00:00:00'}`;
-                            const matchTime = new Date(kickoff).getTime();
                             
-                            if (!isNaN(matchTime) && matchTime <= maxTimestamp) {
-                                const isFinished = match.intHomeScore !== null && match.intAwayScore !== null;
-                                
-                                fixturesToInsert.push({
-                                    fixture_id: getShiftedFixtureId(match.idEvent, sportSelect),
-                                    api_id: match.idEvent,
-                                    sport: sportSelect,
-                                    competition: compSelect,
-                                    home_team: match.strHomeTeam || "Unknown",
-                                    away_team: match.strAwayTeam || "Unknown",
-                                    kickoff_time: kickoff,
-                                    status: isFinished ? 'finished' : 'upcoming',
-                                    home_score_actual: isFinished ? parseInt(match.intHomeScore) : null,
-                                    away_score_actual: isFinished ? parseInt(match.intAwayScore) : null
-                                });
+                            fixturesToInsert.push({
+                                fixture_id: getShiftedFixtureId(match.idEvent, sportSelect),
+                                api_id: match.idEvent,
+                                sport: sportSelect,
+                                competition: compSelect,
+                                home_team: match.strHomeTeam || "Unknown",
+                                away_team: match.strAwayTeam || "Unknown",
+                                kickoff_time: kickoff,
+                                status: isFinished ? 'finished' : 'upcoming',
+                                home_score_actual: isFinished ? parseInt(hScore) : null,
+                                away_score_actual: isFinished ? parseInt(aScore) : null
+                            });
 
-                                if (isFinished) {
-                                    finishedMatches.push({
-                                        id: getShiftedFixtureId(match.idEvent, sportSelect),
-                                        home: parseInt(match.intHomeScore),
-                                        away: parseInt(match.intAwayScore)
-                                    });
-                                }
+                            if (isFinished) {
+                                finishedMatches.push({
+                                    id: getShiftedFixtureId(match.idEvent, sportSelect),
+                                    home: parseInt(hScore),
+                                    away: parseInt(aScore)
+                                });
                             }
                         });
                     }
                 }
 
-                if (fixturesToInsert.length === 0) throw new Error("No matches found within the active timeframe for this league.");
+                if (fixturesToInsert.length === 0) throw new Error("No matches found in API response for this league.");
             }
 
             const { error } = await sbClient.from('fixtures').upsert(fixturesToInsert, { onConflict: 'fixture_id' });
