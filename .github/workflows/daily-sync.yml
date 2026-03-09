@@ -1,0 +1,30 @@
+name: Daily Sports API Sync
+
+on:
+  schedule:
+    - cron: '0 2 * * *' # This triggers the sync at 02:00 AM UTC every single day
+  workflow_dispatch: # This allows you to manually click a "Run Workflow" button in GitHub to test it
+
+jobs:
+  sync_database:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js Environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Supabase Client
+        run: npm install @supabase/supabase-js
+
+      - name: Run Synchronisation Script
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          FOOTBALL_API_KEY: ${{ secrets.FOOTBALL_API_KEY }}
+          BALLDONTLIE_API_KEY: ${{ secrets.BALLDONTLIE_API_KEY }}
+        run: node sync.js
