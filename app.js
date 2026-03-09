@@ -83,15 +83,15 @@ const competitionConfig = {
         'Champions League': { provider: 'football-data', id: 'CL' }
     },
     'Basketball': {
-        'NBA': { provider: 'thesportsdb', id: '4387' }
+        'NBA': { provider: 'thesportsdb', id: '4387', season: '2025-2026' }
     },
     'Am. Football': {
-        'NFL': { provider: 'thesportsdb', id: '4391' }
+        'NFL': { provider: 'thesportsdb', id: '4391', season: '2025' }
     },
     'Rugby': {
-        'Six Nations Championship': { provider: 'thesportsdb', id: '4714' },
-        'English Rugby League Super League': { provider: 'thesportsdb', id: '4415' },
-        'English Prem Rugby': { provider: 'thesportsdb', id: '4414' }
+        'Six Nations Championship': { provider: 'thesportsdb', id: '4714', season: '2026' },
+        'English Rugby League Super League': { provider: 'thesportsdb', id: '4415', season: '2026' },
+        'English Prem Rugby': { provider: 'thesportsdb', id: '4414', season: '2025-2026' }
     }
 };
 
@@ -595,15 +595,20 @@ if (elements.syncBtn) {
         elements.syncBtn.disabled = true;
 
         try {
+            const today = new Date();
+            const maxFutureDate = new Date(today); 
+            maxFutureDate.setDate(today.getDate() + 14);
+            const maxTimestamp = maxFutureDate.getTime();
+
             let fixturesToInsert = [];
             let finishedMatches = [];
 
             if (config.provider === 'football-data') {
-                const today = new Date();
-                const past = new Date(today); past.setDate(today.getDate() - 30);
-                const future = new Date(today); future.setDate(today.getDate() + 30);
-                const dateFrom = past.toISOString().split('T')[0];
-                const dateTo = future.toISOString().split('T')[0];
+                let seasonStartYear = today.getFullYear();
+                if (today.getMonth() < 7) seasonStartYear--;
+                
+                const dateFrom = `${seasonStartYear}-08-01`;
+                const dateTo = maxFutureDate.toISOString().split('T')[0];
 
                 const targetUrl = `https://api.football-data.org/v4/competitions/${config.id}/matches?dateFrom=${dateFrom}&dateTo=${dateTo}`;
                 const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
@@ -633,22 +638,23 @@ if (elements.syncBtn) {
                 }));
 
             } else if (config.provider === 'thesportsdb') {
-                const endpoints = [
-                    `https://www.thesportsdb.com/api/v1/json/${apiKey}/eventsnextleague.php?id=${config.id}`,
-                    `https://www.thesportsdb.com/api/v1/json/${apiKey}/eventspastleague.php?id=${config.id}`
-                ];
+                const targetUrl = `https://www.thesportsdb.com/api/v1/json/${apiKey}/eventsseason.php?id=${config.id}&s=${config.season}`;
+                const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
                 
-                for (let url of endpoints) {
-                    const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
-                    const response = await fetch(proxyUrl, { method: 'GET' });
-                    
-                    if (!response.ok) throw new Error(`TheSportsDB Error: ${response.status}`);
-                    const data = await response.json();
-                    
-                    if (data.events) {
-                        data.events.forEach(match => {
+                const response = await fetch(proxyUrl, { method: 'GET' });
+                
+                if (!response.ok) throw new Error(`TheSportsDB Error: ${response.status}`);
+                const data = await response.json();
+                
+                if (data.events) {
+                    data.events.forEach(match => {
+                        if (!match.dateEvent) return;
+                        
+                        const kickoff = match.strTimestamp || `${match.dateEvent}T${match.strTime || '00:00:00'}`;
+                        const matchTime = new Date(kickoff).getTime();
+                        
+                        if (!isNaN(matchTime) && matchTime <= maxTimestamp) {
                             const isFinished = match.intHomeScore !== null && match.intAwayScore !== null;
-                            const kickoff = match.strTimestamp || `${match.dateEvent}T${match.strTime}`;
                             
                             fixturesToInsert.push({
                                 fixture_id: getShiftedFixtureId(match.idEvent, sportSelect),
@@ -670,11 +676,11 @@ if (elements.syncBtn) {
                                     away: parseInt(match.intAwayScore)
                                 });
                             }
-                        });
-                    }
+                        }
+                    });
                 }
 
-                if (fixturesToInsert.length === 0) throw new Error("No matches found in API response for this league.");
+                if (fixturesToInsert.length === 0) throw new Error("No matches found within the active timeframe for this league.");
             }
 
             const { error } = await sbClient.from('fixtures').upsert(fixturesToInsert, { onConflict: 'fixture_id' });
