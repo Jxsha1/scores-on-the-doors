@@ -73,7 +73,7 @@ const sportConfig = {
     'Football': ['Premier League', 'World Cup', 'Champions League'],
     'Basketball': ['NBA'],
     'Am. Football': ['NFL'],
-    'Rugby': ['Union (Six Nations)', 'League (NRL)']
+    'Rugby': ['Six Nations Championship', 'English Rugby League Super League', 'English Prem Rugby']
 };
 
 const competitionConfig = {
@@ -89,8 +89,9 @@ const competitionConfig = {
         'NFL': { provider: 'thesportsdb', id: '4391' }
     },
     'Rugby': {
-        'Union (Six Nations)': { provider: 'thesportsdb', id: '4714' },
-        'League (NRL)': { provider: 'thesportsdb', id: '4416' }
+        'Six Nations Championship': { provider: 'thesportsdb', id: '4714' },
+        'English Rugby League Super League': { provider: 'thesportsdb', id: '4415' },
+        'English Prem Rugby': { provider: 'thesportsdb', id: '4414' }
     }
 };
 
@@ -673,7 +674,7 @@ if (elements.syncBtn) {
                     }
                 }
 
-                if (fixturesToInsert.length === 0) throw new Error("No matches found in API response for this league[cite: 375, 381].");
+                if (fixturesToInsert.length === 0) throw new Error("No matches found in API response for this league.");
             }
 
             const { error } = await sbClient.from('fixtures').upsert(fixturesToInsert, { onConflict: 'fixture_id' });
