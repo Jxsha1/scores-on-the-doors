@@ -89,8 +89,8 @@ const competitionConfig = {
         'NFL': { provider: 'thesportsdb', id: '4391' }
     },
     'Rugby': {
-        'Union (Six Nations)': { provider: 'thesportsdb', id: '4414' },
-        'League (NRL)': { provider: 'thesportsdb', id: '4359' }
+        'Union (Six Nations)': { provider: 'thesportsdb', id: '4714' },
+        'League (NRL)': { provider: 'thesportsdb', id: '4416' }
     }
 };
 
