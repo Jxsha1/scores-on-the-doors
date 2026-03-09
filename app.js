@@ -638,23 +638,22 @@ if (elements.syncBtn) {
                 }));
 
             } else if (config.provider === 'thesportsdb') {
-                const targetUrl = `https://www.thesportsdb.com/api/v1/json/${apiKey}/eventsseason.php?id=${config.id}&s=${config.season}`;
-                const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
+                const endpoints = [
+                    `https://www.thesportsdb.com/api/v1/json/${apiKey}/eventsnextleague.php?id=${config.id}`,
+                    `https://www.thesportsdb.com/api/v1/json/${apiKey}/eventspastleague.php?id=${config.id}`
+                ];
                 
-                const response = await fetch(proxyUrl, { method: 'GET' });
-                
-                if (!response.ok) throw new Error(`TheSportsDB Error: ${response.status}`);
-                const data = await response.json();
-                
-                if (data.events) {
-                    data.events.forEach(match => {
-                        if (!match.dateEvent) return;
-                        
-                        const kickoff = match.strTimestamp || `${match.dateEvent}T${match.strTime || '00:00:00'}`;
-                        const matchTime = new Date(kickoff).getTime();
-                        
-                        if (!isNaN(matchTime) && matchTime <= maxTimestamp) {
+                for (let url of endpoints) {
+                    const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+                    const response = await fetch(proxyUrl, { method: 'GET' });
+                    
+                    if (!response.ok) throw new Error(`TheSportsDB Error: ${response.status}`);
+                    const data = await response.json();
+                    
+                    if (data.events) {
+                        data.events.forEach(match => {
                             const isFinished = match.intHomeScore !== null && match.intAwayScore !== null;
+                            const kickoff = match.strTimestamp || `${match.dateEvent}T${match.strTime || '00:00:00'}`;
                             
                             fixturesToInsert.push({
                                 fixture_id: getShiftedFixtureId(match.idEvent, sportSelect),
@@ -664,7 +663,7 @@ if (elements.syncBtn) {
                                 home_team: match.strHomeTeam || "Unknown",
                                 away_team: match.strAwayTeam || "Unknown",
                                 kickoff_time: kickoff,
-                                status: isFinished ? 'finished' : 'upcoming',
+                                status: isFXnished ? 'finished' : 'upcoming',
                                 home_score_actual: isFinished ? parseInt(match.intHomeScore) : null,
                                 away_score_actual: isFinished ? parseInt(match.intAwayScore) : null
                             });
@@ -676,11 +675,11 @@ if (elements.syncBtn) {
                                     away: parseInt(match.intAwayScore)
                                 });
                             }
-                        }
-                    });
+                        });
+                    }
                 }
 
-                if (fixturesToInsert.length === 0) throw new Error("No matches found within the active timeframe for this league.");
+                if (fixturesToInsert.length === 0) throw new Error("No matches found in API response for this league.");
             }
 
             const { error } = await sbClient.from('fixtures').upsert(fixturesToInsert, { onConflict: 'fixture_id' });
