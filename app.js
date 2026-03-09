@@ -71,48 +71,45 @@ const elements = {
 
 const sportConfig = {
     'Football': ['Premier League', 'World Cup', 'Champions League'],
-    'Basketball': ['NBA', 'EuroLeague'],
-    'Am. Football': ['NFL', 'NCAA'],
-    'Rugby': ['Union (Six Nations)', 'League (NRL)', 'World Cup']
+    'Basketball': ['NBA'],
+    'Am. Football': ['NFL'],
+    'Rugby': ['Union (Six Nations)', 'League (NRL)']
 };
 
 const competitionConfig = {
     'Football': {
-        'Premier League': { api: 'football-data', id: 'PL' },
-        'World Cup': { api: 'football-data', id: 'WC' },
-        'Champions League': { api: 'football-data', id: 'CL' }
+        'Premier League': { provider: 'football-data', id: 'PL' },
+        'World Cup': { provider: 'football-data', id: 'WC' },
+        'Champions League': { provider: 'football-data', id: 'CL' }
     },
     'Basketball': {
-        'NBA': { api: 'api-sports', endpoint: 'https://v1.basketball.api-sports.io/games', params: 'league=12&season=2025' },
-        'EuroLeague': { api: 'api-sports', endpoint: 'https://v1.basketball.api-sports.io/games', params: 'league=116&season=2025' }
+        'NBA': { provider: 'thesportsdb', id: '4387' }
     },
     'Am. Football': {
-        'NFL': { api: 'api-sports', endpoint: 'https://v1.american-football.api-sports.io/games', params: 'league=1&season=2025' },
-        'NCAA': { api: 'api-sports', endpoint: 'https://v1.american-football.api-sports.io/games', params: 'league=2&season=2025' }
+        'NFL': { provider: 'thesportsdb', id: '4391' }
     },
     'Rugby': {
-        'Union (Six Nations)': { api: 'api-sports', endpoint: 'https://v1.rugby.api-sports.io/games', params: 'league=16&season=2026' },
-        'League (NRL)': { api: 'api-sports', endpoint: 'https://v1.rugby.api-sports.io/games', params: 'league=26&season=2026' },
-        'World Cup': { api: 'api-sports', endpoint: 'https://v1.rugby.api-sports.io/games', params: 'league=15&season=2023' }
+        'Union (Six Nations)': { provider: 'thesportsdb', id: '4414' },
+        'League (NRL)': { provider: 'thesportsdb', id: '4359' }
     }
 };
 
 const sportThemes = {
     'Football': { 
         nav: 'bg-blue-900', container: 'bg-blue-950', activeBtn: 'bg-blue-800 text-white', inactiveBtn: 'text-gray-400 hover:bg-blue-800', 
-        icon: '<img src="football_icon.png" alt="Football" class="w-6 h-6 object-contain">' 
+        icon: 'football_icon.png' 
     },
     'Basketball': { 
         nav: 'bg-orange-600', container: 'bg-orange-700', activeBtn: 'bg-orange-800 text-white', inactiveBtn: 'text-orange-200 hover:bg-orange-800', 
-        icon: '<img src="basketball_icon.png" alt="Basketball" class="w-6 h-6 object-contain">' 
+        icon: 'basketball_icon.png' 
     },
     'Am. Football': { 
         nav: 'bg-red-900', container: 'bg-red-950', activeBtn: 'bg-red-800 text-white', inactiveBtn: 'text-red-300 hover:bg-red-800', 
-        icon: '<img src="americanfootball_icon.png" alt="Am. Football" class="w-6 h-6 object-contain">' 
+        icon: 'americanfootball_icon.png' 
     },
     'Rugby': { 
         nav: 'bg-emerald-800', container: 'bg-emerald-900', activeBtn: 'bg-emerald-700 text-white', inactiveBtn: 'text-emerald-200 hover:bg-emerald-700', 
-        icon: '<img src="rugby_icon.png" alt="Rugby" class="w-6 h-6 object-contain">' 
+        icon: 'rugby_icon.png' 
     }
 };
 
@@ -127,16 +124,25 @@ let deferredPrompt;
 window.setSport = (sport) => {
     currentSport = sport;
     currentCompetition = sportConfig[sport][0]; 
+    
     const theme = sportThemes[sport];
     
-    if (elements.theme.nav) elements.theme.nav.className = `text-white p-4 shadow-md flex justify-between items-center relative z-30 transition-colors duration-300 ${theme.nav}`;
-    if (elements.theme.container) elements.theme.container.className = `flex overflow-x-auto whitespace-nowrap text-[10px] font-black tracking-widest no-scrollbar shadow-inner sticky top-0 z-20 transition-colors duration-300 ${theme.container}`;
-    if (elements.theme.icon) elements.theme.icon.innerHTML = theme.icon;
+    if (elements.theme.nav) {
+        elements.theme.nav.className = `text-white p-4 shadow-md flex justify-between items-center relative z-30 transition-colors duration-300 ${theme.nav}`;
+    }
+    if (elements.theme.container) {
+        elements.theme.container.className = `flex overflow-x-auto whitespace-nowrap text-[10px] font-black tracking-widest no-scrollbar shadow-inner sticky top-0 z-20 transition-colors duration-300 ${theme.container}`;
+    }
+    if (elements.theme.icon) {
+        elements.theme.icon.innerHTML = `<img src="${theme.icon}" alt="${sport}" class="w-8 h-8 object-contain">`;
+    }
 
     ['Football', 'Basketball', 'Am. Football', 'Rugby'].forEach(s => {
         const safeId = s.replace('. ', '');
         const btn = document.getElementById(`sport-btn-${safeId}`);
-        if(btn) btn.className = `px-6 py-3 transition-colors duration-300 ${s === sport ? theme.activeBtn : theme.inactiveBtn}`;
+        if(btn) {
+            btn.className = `px-6 py-3 transition-colors duration-300 ${s === sport ? theme.activeBtn : theme.inactiveBtn}`;
+        }
     });
 
     renderCompetitionFilters();
@@ -252,11 +258,17 @@ if (elements.leagues?.createBtn) {
         const sport = elements.leagues.createSport.value;
         const competition = elements.leagues.createComp.value;
         if (!name) return alert("Please enter a league name.");
+        
         const inviteCode = generateInviteCode();
+        
         const { data: league, error: leagueErr } = await sbClient.from('leagues').insert([{ name, invite_code: inviteCode, created_by: currentUser.id, sport, competition }]).select().single();
+        
         if (leagueErr) return alert("Error creating league. Details: " + leagueErr.message);
+        
         const { error: memberErr } = await sbClient.from('league_members').insert([{ league_id: league.id, user_id: currentUser.id }]);
+        
         if (memberErr) return alert("Error joining your new league: " + memberErr.message);
+        
         alert(`League Created! Your invite code is ${inviteCode}`);
         elements.leagues.createName.value = '';
         fetchMyLeagues();
@@ -268,13 +280,18 @@ if (elements.leagues?.joinBtn) {
         if (!currentUser) return alert("Please sign in to join a league.");
         const code = elements.leagues.joinCode.value.trim().toUpperCase();
         if (!code) return alert("Please enter a code.");
+        
         const { data: league, error: findErr } = await sbClient.from('leagues').select('*').eq('invite_code', code).single();
+        
         if (findErr || !league) return alert("Invalid invite code.");
+        
         const { error: joinErr } = await sbClient.from('league_members').insert([{ league_id: league.id, user_id: currentUser.id }]);
+        
         if (joinErr) {
             if(joinErr.code === '23505') return alert("You are already in this league!");
             return alert("Error joining league: " + joinErr.message);
         }
+        
         alert(`Successfully joined ${league.name}!`);
         elements.leagues.joinCode.value = '';
         fetchMyLeagues();
@@ -282,7 +299,9 @@ if (elements.leagues?.joinBtn) {
 }
 
 window.viewLeague = (leagueId) => {
-    if(elements.leagues?.filter) elements.leagues.filter.value = leagueId;
+    if(elements.leagues?.filter) {
+        elements.leagues.filter.value = leagueId;
+    }
     switchTab('lead');
 };
 
@@ -293,7 +312,9 @@ window.openLeagueAdmin = async (leagueId, currentName, event) => {
         elements.leagueAdmin.nameInput.value = currentName;
         elements.leagueAdmin.membersList.innerHTML = '<p class="text-xs text-gray-400">Loading members...</p>';
         elements.leagueAdmin.modal.classList.remove('hidden');
+
         const { data, error } = await sbClient.from('league_members').select('user_id, users(display_name, first_name, last_name)').eq('league_id', leagueId);
+        
         if (!error && data) {
             elements.leagueAdmin.membersList.innerHTML = data.map(m => {
                 const userName = m.users?.first_name ? m.users.first_name + ' ' + (m.users.last_name || '') : m.users?.display_name?.split('@')[0] || 'Unknown User';
@@ -310,7 +331,9 @@ window.openLeagueAdmin = async (leagueId, currentName, event) => {
 window.kickUser = async (leagueId, userId) => {
     const confirmKick = confirm("Are you sure you want to kick this user from the league?");
     if (!confirmKick) return;
+    
     const { error } = await sbClient.from('league_members').delete().match({ league_id: leagueId, user_id: userId });
+    
     if (error) alert("Error kicking user: " + error.message);
     else {
         alert("User kicked successfully.");
@@ -319,15 +342,21 @@ window.kickUser = async (leagueId, userId) => {
     }
 };
 
-if (elements.leagueAdmin?.closeBtn) elements.leagueAdmin.closeBtn.onclick = () => elements.leagueAdmin.modal.classList.add('hidden');
+if (elements.leagueAdmin?.closeBtn) {
+    elements.leagueAdmin.closeBtn.onclick = () => {
+        elements.leagueAdmin.modal.classList.add('hidden');
+    };
+}
 
 if (elements.leagueAdmin?.updateBtn) {
     elements.leagueAdmin.updateBtn.onclick = async () => {
         const leagueId = elements.leagueAdmin.idInput.value;
         const newName = elements.leagueAdmin.nameInput.value.trim();
         if (!newName) return alert("Name cannot be empty.");
+
         elements.leagueAdmin.updateBtn.textContent = "Updating...";
         const { error } = await sbClient.from('leagues').update({ name: newName }).eq('id', leagueId);
+        
         if (error) alert("Error updating league: " + error.message);
         else {
             alert("League renamed successfully!");
@@ -340,11 +369,15 @@ if (elements.leagueAdmin?.updateBtn) {
 
 if (elements.leagueAdmin?.regenBtn) {
     elements.leagueAdmin.regenBtn.onclick = async () => {
-        if (!confirm("Generate a new invite code? The old code will immediately stop working.")) return;
+        const confirmRegen = confirm("Generate a new invite code? The old code will immediately stop working.");
+        if (!confirmRegen) return;
+        
         const leagueId = elements.leagueAdmin.idInput.value;
         const newCode = generateInviteCode();
         elements.leagueAdmin.regenBtn.textContent = "Generating...";
+        
         const { error } = await sbClient.from('leagues').update({ invite_code: newCode }).eq('id', leagueId);
+        
         if (error) alert("Error updating code: " + error.message);
         else {
             alert(`New code generated: ${newCode}`);
@@ -356,15 +389,22 @@ if (elements.leagueAdmin?.regenBtn) {
 
 if (elements.leagueAdmin?.deleteBtn) {
     elements.leagueAdmin.deleteBtn.onclick = async () => {
-        if (!confirm("Are you sure you want to completely delete this league? This cannot be undone.")) return;
+        const confirmDelete = confirm("Are you sure you want to completely delete this league? This cannot be undone and will remove all members.");
+        if (!confirmDelete) return;
+
         const leagueId = elements.leagueAdmin.idInput.value;
         elements.leagueAdmin.deleteBtn.textContent = "Deleting...";
+        
         const { error } = await sbClient.from('leagues').delete().eq('id', leagueId);
+        
         if (error) alert("Error deleting league: " + error.message);
         else {
             alert("League deleted.");
             elements.leagueAdmin.modal.classList.add('hidden');
-            if (elements.leagues?.filter && elements.leagues.filter.value === leagueId) elements.leagues.filter.value = 'global';
+            
+            if (elements.leagues?.filter && elements.leagues.filter.value === leagueId) {
+                elements.leagues.filter.value = 'global';
+            }
             fetchMyLeagues();
         }
         elements.leagueAdmin.deleteBtn.textContent = "Delete League Entirely";
@@ -373,73 +413,112 @@ if (elements.leagueAdmin?.deleteBtn) {
 
 async function fetchMyLeagues() {
     if (!elements.leagues?.container || !currentUser) return;
+    
     const { data: members, error } = await sbClient.from('league_members').select('leagues(*)').eq('user_id', currentUser.id);
-    if (error) { elements.leagues.container.innerHTML = `<p class="text-xs text-red-500">Error loading leagues.</p>`; return; }
+    
+    if (error) {
+        elements.leagues.container.innerHTML = `<p class="text-xs text-red-500">Error loading leagues.</p>`;
+        return;
+    }
+
     const myLeagues = members.map(m => m.leagues);
+    
     elements.leagues.container.innerHTML = myLeagues.length > 0 ? myLeagues.map(l => {
         const isCreator = l.created_by === currentUser.id;
         const safeName = l.name.replace(/'/g, "\\'");
         const settingsBtn = isCreator ? `<button onclick="openLeagueAdmin('${l.id}', '${safeName}', event)" class="text-gray-400 hover:text-blue-900 p-2 ml-1 active:scale-95 transition-transform"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg></button>` : '';
-        return `<div class="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex flex-col gap-2 hover:border-blue-300 hover:shadow-md transition-all group">
+
+        return `
+        <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex flex-col gap-2 hover:border-blue-300 hover:shadow-md transition-all group">
             <div class="flex justify-between items-start w-full">
                 <div onclick="viewLeague('${l.id}')" class="flex flex-col cursor-pointer flex-1">
                     <span class="font-bold text-sm text-blue-900 group-hover:text-blue-600 transition-colors">${l.name}</span>
                     <span class="text-[9px] text-gray-500 font-bold uppercase tracking-wider mt-1">${l.sport} • ${l.competition || 'All'}</span>
                 </div>
-                <div class="flex items-center gap-1">
-                    <span class="bg-blue-50 text-blue-700 px-3 py-1 rounded-lg text-xs font-black tracking-widest border border-blue-100">${l.invite_code}</span>
-                    ${settingsBtn}
+                <div class="flex flex-col items-end gap-2">
+                    <div class="flex items-center gap-1">
+                        <span class="bg-blue-50 text-blue-700 px-3 py-1 rounded-lg text-xs font-black tracking-widest border border-blue-100">${l.invite_code}</span>
+                        ${settingsBtn}
+                    </div>
                 </div>
             </div>
-        </div>`;
+        </div>
+        `;
     }).join('') : '<p class="text-xs text-gray-400 italic">You have not joined any leagues yet.</p>';
+
     if (elements.leagues.filter) {
         const currentVal = elements.leagues.filter.value;
-        elements.leagues.filter.innerHTML = `<option value="global">Global Leaderboard</option>` + myLeagues.map(l => `<option value="${l.id}">${l.name}</option>`).join('');
-        if(Array.from(elements.leagues.filter.options).some(o => o.value === currentVal)) elements.leagues.filter.value = currentVal;
+        elements.leagues.filter.innerHTML = `<option value="global">Global Leaderboard</option>` + 
+            myLeagues.map(l => `<option value="${l.id}">${l.name}</option>`).join('');
+        
+        if(Array.from(elements.leagues.filter.options).some(o => o.value === currentVal)) {
+            elements.leagues.filter.value = currentVal;
+        }
     }
 }
 
-if(elements.leagues?.filter) elements.leagues.filter.addEventListener('change', fetchLeaderboard);
+if(elements.leagues?.filter) {
+    elements.leagues.filter.addEventListener('change', fetchLeaderboard);
+}
 
 async function fetchLeaderboard() {
     if(!elements.leaderboard) return;
+    
     let query = sbClient.from('users').select('*').order('total_points', { ascending: false }).order('exact_scores', { ascending: false });
+    
     const filterVal = elements.leagues?.filter?.value;
     if (filterVal && filterVal !== 'global') {
         const { data: leagueMembers } = await sbClient.from('league_members').select('user_id').eq('league_id', filterVal);
         if (leagueMembers) {
             const userIds = leagueMembers.map(m => m.user_id);
-            if(userIds.length > 0) query = query.in('uid', userIds);
-            else { elements.leaderboard.innerHTML = '<tr><td colspan="3" class="text-center py-4 text-gray-400 text-xs">No active users in this league.</td></tr>'; return; }
+            if(userIds.length > 0) {
+                query = query.in('uid', userIds);
+            } else {
+                elements.leaderboard.innerHTML = '<tr><td colspan="3" class="text-center py-4 text-gray-400 text-xs">No active users in this league.</td></tr>';
+                return;
+            }
         }
     }
+    
     const { data } = await query;
-    elements.leaderboard.innerHTML = (data || []).map((u, i) => `<tr class="hover:bg-gray-50 transition-colors"><td class="px-6 py-5 text-gray-300 font-black text-sm italic">#${i+1}</td><td class="px-6 py-5 font-bold text-blue-900">${u.first_name ? u.first_name + ' ' + (u.last_name || '') : u.display_name?.split('@')[0] || 'Unknown User'}</td><td class="px-6 py-5 text-right font-black text-blue-600 text-lg">${u.total_points || 0}</td></tr>`).join('') || '';
+    elements.leaderboard.innerHTML = (data || []).map((u, i) => `
+        <tr class="hover:bg-gray-50 transition-colors">
+            <td class="px-6 py-5 text-gray-300 font-black text-sm italic">#${i+1}</td>
+            <td class="px-6 py-5 font-bold text-blue-900">${u.first_name ? u.first_name + ' ' + (u.last_name || '') : u.display_name?.split('@')[0] || 'Unknown User'}</td>
+            <td class="px-6 py-5 text-right font-black text-blue-600 text-lg">${u.total_points || 0}</td>
+        </tr>
+    `).join('') || '';
 }
 
 async function fetchFixtures() {
     if (!elements.fixtures) return;
     try {
-        const { data: fixtures, error } = await sbClient.from('fixtures').select('*');
+        const { data: fixtures, error } = await sbClient.from('fixtures').select('*').eq('sport', currentSport).eq('competition', currentCompetition).eq('status', currentSubTab);
         if (error) throw error;
+
         let userPreds = [];
         hasExistingPredictions = false;
         if (currentUser) {
             const { data: preds } = await sbClient.from('predictions').select('*').eq('uid', currentUser.id);
             if (preds) { userPreds = preds; hasExistingPredictions = userPreds.length > 0; }
         }
-        let displayFixtures = (fixtures || []).filter(f => f.status === currentSubTab && f.sport === currentSport && (f.competition === currentCompetition || !f.competition));
+
+        let displayFixtures = fixtures || [];
+
         displayFixtures.sort((a, b) => {
             const dateA = new Date(a.kickoff_time);
             const dateB = new Date(b.kickoff_time);
             return currentSubTab === 'upcoming' ? dateA - dateB : dateB - dateA;
         });
+
         elements.fixtures.innerHTML = displayFixtures.map(f => {
             const p = userPreds.find(p => p.fixture_id === f.fixture_id);
             const badge = getBadge(p ? {h: p.home_predicted, a: p.away_predicted} : null, {h: f.home_score_actual, a: f.away_score_actual});
             const isLocked = f.status === 'finished';
-            return `<div class="relative bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mb-4 transition-all" data-id="${f.fixture_id}">${badge}
+
+            return `
+            <div class="relative bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mb-4 transition-all" data-id="${f.fixture_id}">
+                ${badge}
                 <div class="flex justify-between items-center text-[9px] font-black text-gray-300 uppercase tracking-widest mb-4">
                     <span>${new Date(f.kickoff_time).toLocaleDateString('en-GB', {weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute:'2-digit'})}</span>
                     <span class="${isLocked ? 'text-red-500' : 'text-blue-500'}">${isLocked ? 'FT Result' : 'Upcoming'}</span>
@@ -451,10 +530,16 @@ async function fetchFixtures() {
                         <input type="number" min="0" id="a-${f.fixture_id}" value="${p ? p.away_predicted : ''}" ${isLocked ? 'disabled' : ''} class="w-12 h-12 text-center bg-gray-50 border-2 border-gray-100 rounded-xl font-black text-lg focus:border-blue-500 outline-none transition-colors ${isLocked ? 'opacity-50' : ''}" placeholder="-">
                     </div>
                     <div class="flex-1 text-left font-black text-sm text-blue-900 truncate">${f.away_team}</div>
-                </div>${isLocked ? `<div class="mt-4 pt-4 border-t border-gray-50 text-center text-[10px] font-bold text-gray-400">Actual Result: <span class="text-blue-900">${f.home_score_actual} - ${f.away_score_actual}</span></div>` : ''}</div>`;
+                </div>
+                ${isLocked ? `<div class="mt-4 pt-4 border-t border-gray-50 text-center text-[10px] font-bold text-gray-400">Actual Result: <span class="text-blue-900">${f.home_score_actual} - ${f.away_score_actual}</span></div>` : ''}
+            </div>`;
         }).join('') || `<p class="text-center py-10 text-gray-400">No matches found for ${currentCompetition}.</p>`;
+        
         updateButtonLabel();
-    } catch (err) { elements.fixtures.innerHTML = `<p class="text-center py-10 text-red-500 font-bold">Error loading data: ${err.message}</p>`; }
+
+    } catch (err) {
+        elements.fixtures.innerHTML = `<p class="text-center py-10 text-red-500 font-bold">Error loading data: ${err.message}</p>`;
+    }
 }
 
 function updateButtonLabel() {
@@ -479,12 +564,16 @@ if (elements.submitBtn) {
             const id = div.dataset.id;
             const hInput = document.getElementById(`h-${id}`);
             const aInput = document.getElementById(`a-${id}`);
+            
             if (hInput && aInput && !hInput.disabled) {
                 const h = hInput.value;
                 const a = aInput.value;
-                if (h !== "" && a !== "") preds.push({ uid: currentUser.id, fixture_id: parseInt(id), home_predicted: parseInt(h), away_predicted: parseInt(a) });
+                if (h !== "" && a !== "") {
+                    preds.push({ uid: currentUser.id, fixture_id: parseInt(id), home_predicted: parseInt(h), away_predicted: parseInt(a) });
+                }
             }
         });
+
         if (preds.length === 0) return alert("Enter scores first!");
         elements.submitBtn.textContent = "Processing...";
         const { error } = await sbClient.from('predictions').upsert(preds, { onConflict: 'uid, fixture_id' });
@@ -495,10 +584,12 @@ if (elements.submitBtn) {
 if (elements.syncBtn) {
     elements.syncBtn.onclick = async () => {
         const apiKey = elements.apiKeyInput?.value?.trim();
-        if (!apiKey) return alert("Please paste your API key first.");
+        if (!apiKey) return alert("Please enter your API Key.");
+        
         const sportSelect = document.getElementById('admin-sync-sport')?.value || 'Football';
         const compSelect = document.getElementById('admin-sync-comp')?.value || 'Premier League';
         const config = competitionConfig[sportSelect][compSelect];
+
         elements.syncBtn.textContent = "Fetching Data...";
         elements.syncBtn.disabled = true;
 
@@ -506,18 +597,21 @@ if (elements.syncBtn) {
             let fixturesToInsert = [];
             let finishedMatches = [];
 
-            if (config.api === 'football-data') {
+            if (config.provider === 'football-data') {
                 const today = new Date();
                 const past = new Date(today); past.setDate(today.getDate() - 30);
                 const future = new Date(today); future.setDate(today.getDate() + 30);
                 const dateFrom = past.toISOString().split('T')[0];
                 const dateTo = future.toISOString().split('T')[0];
+
                 const targetUrl = `https://api.football-data.org/v4/competitions/${config.id}/matches?dateFrom=${dateFrom}&dateTo=${dateTo}`;
                 const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
+
                 const response = await fetch(proxyUrl, { method: 'GET', headers: { 'X-Auth-Token': apiKey } });
-                if (!response.ok) throw new Error(`Football-Data Error: ${response.status}`);
+                if (!response.ok) throw new Error(`Football-Data API Error: ${response.status}`);
                 const data = await response.json();
                 if (!data.matches || data.matches.length === 0) throw new Error("No matches found.");
+
                 fixturesToInsert = data.matches.map(match => ({
                     fixture_id: getShiftedFixtureId(match.id, sportSelect),
                     api_id: match.id,
@@ -530,49 +624,78 @@ if (elements.syncBtn) {
                     home_score_actual: match.status === 'FINISHED' ? match.score?.fullTime?.home : null,
                     away_score_actual: match.status === 'FINISHED' ? match.score?.fullTime?.away : null
                 }));
-                finishedMatches = data.matches.filter(m => m.status === 'FINISHED').map(m => ({ id: getShiftedFixtureId(m.id, sportSelect), home: m.score?.fullTime?.home || 0, away: m.score?.fullTime?.away || 0 }));
 
-            } else if (config.api === 'api-sports') {
-                const targetUrl = `${config.endpoint}?${config.params}`;
-                const response = await fetch(targetUrl, { method: 'GET', headers: { 'x-apisports-key': apiKey } });
-                if (!response.ok) throw new Error(`API-Sports Error: ${response.status}`);
-                const data = await response.json();
-                if (data.errors && Object.keys(data.errors).length > 0) throw new Error("API-Sports Error: " + JSON.stringify(data.errors));
-                if (!data.response || data.response.length === 0) throw new Error("No matches found in API response for this season/league.");
+                finishedMatches = data.matches.filter(m => m.status === 'FINISHED').map(m => ({
+                    id: getShiftedFixtureId(m.id, sportSelect), 
+                    home: m.score?.fullTime?.home || 0, 
+                    away: m.score?.fullTime?.away || 0
+                }));
 
-                fixturesToInsert = data.response.map(match => {
-                    const isFinished = match.status?.short === 'FT' || match.status?.short === 'AOT' || match.status?.short === 'PEN';
-                    const hScore = match.scores?.home?.total ?? match.scores?.home ?? null;
-                    const aScore = match.scores?.away?.total ?? match.scores?.away ?? null;
-                    return {
-                        fixture_id: getShiftedFixtureId(match.id, sportSelect),
-                        api_id: match.id,
-                        sport: sportSelect,
-                        competition: compSelect,
-                        home_team: match.teams?.home?.name || "Unknown",
-                        away_team: match.teams?.away?.name || "Unknown",
-                        kickoff_time: match.date,
-                        status: isFinished ? 'finished' : 'upcoming',
-                        home_score_actual: isFinished ? hScore : null,
-                        away_score_actual: isFinished ? aScore : null
-                    };
-                });
-                finishedMatches = data.response.filter(m => {
-                    const s = m.status?.short;
-                    return s === 'FT' || s === 'AOT' || s === 'PEN';
-                }).map(m => ({ id: getShiftedFixtureId(m.id, sportSelect), home: m.scores?.home?.total ?? m.scores?.home ?? 0, away: m.scores?.away?.total ?? m.scores?.away ?? 0 }));
+            } else if (config.provider === 'thesportsdb') {
+                const endpoints = [
+                    `https://www.thesportsdb.com/api/v1/json/${apiKey}/eventsnextleague.php?id=${config.id}`,
+                    `https://www.thesportsdb.com/api/v1/json/${apiKey}/eventspastleague.php?id=${config.id}`
+                ];
+                
+                for (let url of endpoints) {
+                    const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+                    const response = await fetch(proxyUrl, { method: 'GET' });
+                    
+                    if (!response.ok) throw new Error(`TheSportsDB Error: ${response.status}`);
+                    const data = await response.json();
+                    
+                    if (data.events) {
+                        data.events.forEach(match => {
+                            const isFinished = match.intHomeScore !== null && match.intAwayScore !== null;
+                            const kickoff = match.strTimestamp || `${match.dateEvent}T${match.strTime}`;
+                            
+                            fixturesToInsert.push({
+                                fixture_id: getShiftedFixtureId(match.idEvent, sportSelect),
+                                api_id: match.idEvent,
+                                sport: sportSelect,
+                                competition: compSelect,
+                                home_team: match.strHomeTeam || "Unknown",
+                                away_team: match.strAwayTeam || "Unknown",
+                                kickoff_time: kickoff,
+                                status: isFinished ? 'finished' : 'upcoming',
+                                home_score_actual: isFinished ? parseInt(match.intHomeScore) : null,
+                                away_score_actual: isFinished ? parseInt(match.intAwayScore) : null
+                            });
+
+                            if (isFinished) {
+                                finishedMatches.push({
+                                    id: getShiftedFixtureId(match.idEvent, sportSelect),
+                                    home: parseInt(match.intHomeScore),
+                                    away: parseInt(match.intAwayScore)
+                                });
+                            }
+                        });
+                    }
+                }
+
+                if (fixturesToInsert.length === 0) throw new Error("No matches found in API response for this league[cite: 375, 381].");
             }
 
             const { error } = await sbClient.from('fixtures').upsert(fixturesToInsert, { onConflict: 'fixture_id' });
             if (error) throw new Error("Database Error: " + error.message);
+
             elements.syncBtn.textContent = "Calculating Points...";
             for (const match of finishedMatches) {
-                await sbClient.rpc('calculate_fixture_points', { target_fixture_id: match.id, final_home: match.home, final_away: match.away });
+                await sbClient.rpc('calculate_fixture_points', {
+                    target_fixture_id: match.id,
+                    final_home: match.home,
+                    final_away: match.away
+                });
             }
+
             alert(`Success! Imported ${fixturesToInsert.length} matches for ${compSelect}.`);
             fetchAdminFixtures(); 
-        } catch (err) { alert(err.message); }
-        elements.syncBtn.textContent = "Fetch API & Update Scores";
+            
+        } catch (err) {
+            alert(err.message);
+        }
+
+        elements.syncBtn.textContent = "Sync Competition Data";
         elements.syncBtn.disabled = false;
     };
 }
@@ -581,7 +704,9 @@ async function fetchAdminFixtures() {
     if(!elements.adminFixtures) return;
     const pastDate = new Date(); pastDate.setDate(pastDate.getDate() - 30);
     const { data } = await sbClient.from('fixtures').select('*').gte('kickoff_time', pastDate.toISOString()).order('kickoff_time', { ascending: true });
-    elements.adminFixtures.innerHTML = (data || []).map(f => `<div class="bg-white p-4 rounded-xl border border-gray-100 flex items-center justify-between shadow-sm">
+    
+    elements.adminFixtures.innerHTML = (data || []).map(f => `
+        <div class="bg-white p-4 rounded-xl border border-gray-100 flex items-center justify-between shadow-sm">
             <div class="flex flex-col flex-1 truncate pr-2">
                 <span class="text-xs font-black text-blue-900 truncate">${f.home_team} v ${f.away_team}</span>
                 <span class="text-[9px] text-gray-400 font-bold uppercase tracking-wider">${f.sport} • ${f.competition || 'All'}</span>
@@ -591,7 +716,8 @@ async function fetchAdminFixtures() {
                 <input type="number" id="adm-a-${f.fixture_id}" class="w-10 h-10 text-center bg-gray-50 border rounded-lg font-bold" value="${f.away_score_actual !== null ? f.away_score_actual : ''}">
             </div>
             <button onclick="updateMatchResult(${f.fixture_id})" class="bg-red-600 text-white px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest shadow-md hover:bg-red-700 ml-2">Update</button>
-        </div>`).join('') || '<p class="text-xs text-gray-500">No active fixtures found.</p>';
+        </div>
+    `).join('') || '<p class="text-xs text-gray-500">No active fixtures found.</p>';
 }
 
 window.updateMatchResult = async (id) => {
@@ -604,41 +730,99 @@ window.updateMatchResult = async (id) => {
 };
 
 const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+
 if (!isStandalone && elements.pwa?.banner) {
-    window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredPrompt = e; setTimeout(showInstallBanner, 2000); });
+    window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        setTimeout(showInstallBanner, 2000); 
+    });
+
     const isIos = () => /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
-    const isSafari = () => { const ua = window.navigator.userAgent.toLowerCase(); return /safari/.test(ua) && !/chrome|crios|fxios/.test(ua); };
+    const isSafari = () => {
+        const ua = window.navigator.userAgent.toLowerCase();
+        return /safari/.test(ua) && !/chrome|crios|fxios/.test(ua);
+    };
+
     if (isIos() && isSafari() && elements.pwa?.text) {
-        elements.pwa.text.innerHTML = `<span class="block font-bold mb-2 text-white text-[13px]">Install our free app for the best experience!</span>
+        elements.pwa.text.innerHTML = `
+            <span class="block font-bold mb-2 text-white text-[13px]">Install our free app for the best experience!</span>
             <span class="block mb-1 text-[11px]">1. Tap the <svg class="inline-block w-5 h-5 mx-0.5 -mt-1 text-gray-400" fill="currentColor" viewBox="0 0 24 24"><path d="M6 12a2 2 0 11-4 0 2 2 0 014 0zM12 10a2 2 0 100 4 2 2 0 000-4zM22 12a2 2 0 11-4 0 2 2 0 014 0z"/></svg> or <svg class="inline-block w-4 h-4 mx-0.5 -mt-1 text-blue-400" viewBox="0 0 512 512" fill="none" stroke="currentColor" stroke-width="40" stroke-linecap="round" stroke-linejoin="round"><path d="M336 176h40a40 40 0 0140 40v208a40 40 0 01-40 40H136a40 40 0 01-40-40V216a40 40 0 0140-40h40"/><path d="M336 112L256 32l-80 80"/><path d="M256 32v256"/></svg> icon.</span>
-            <span class="block text-[11px]">2. Select <strong>Share</strong> ➝ <strong>View more</strong> ➝ <strong>Add to Home Screen</strong></span>`;
-        elements.pwa.text.classList.remove('mt-1'); elements.pwa.text.classList.add('mt-2', 'leading-tight');
-        if (elements.pwa?.btn) elements.pwa.btn.classList.add('hidden'); setTimeout(showInstallBanner, 2000);
+            <span class="block text-[11px]">2. Select <strong>Share</strong> ➝ <strong>View more</strong> ➝ <strong>Add to Home Screen</strong></span>
+        `;
+        
+        elements.pwa.text.classList.remove('mt-1');
+        elements.pwa.text.classList.add('mt-2', 'leading-tight');
+        
+        if (elements.pwa?.btn) elements.pwa.btn.classList.add('hidden'); 
+        setTimeout(showInstallBanner, 2000);
     }
-    function showInstallBanner() { if (elements.pwa?.banner) { elements.pwa.banner.classList.remove('hidden'); setTimeout(() => elements.pwa.banner.classList.remove('translate-y-full'), 100); } }
-    if (elements.pwa?.close) elements.pwa.close.onclick = () => { elements.pwa.banner.classList.add('translate-y-full'); setTimeout(() => elements.pwa.banner.classList.add('hidden'), 500); };
-    if (elements.pwa?.btn) elements.pwa.btn.onclick = async () => { if (deferredPrompt) { deferredPrompt.prompt(); const { outcome } = await deferredPrompt.userChoice; if (outcome === 'accepted') elements.pwa.banner.classList.add('translate-y-full'); deferredPrompt = null; } };
+
+    function showInstallBanner() {
+        if (elements.pwa?.banner) {
+            elements.pwa.banner.classList.remove('hidden');
+            setTimeout(() => elements.pwa.banner.classList.remove('translate-y-full'), 100);
+        }
+    }
+
+    if (elements.pwa?.close) {
+        elements.pwa.close.onclick = () => {
+            elements.pwa.banner.classList.add('translate-y-full');
+            setTimeout(() => elements.pwa.banner.classList.add('hidden'), 500);
+        };
+    }
+
+    if (elements.pwa?.btn) {
+        elements.pwa.btn.onclick = async () => {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                if (outcome === 'accepted') {
+                    elements.pwa.banner.classList.add('translate-y-full');
+                }
+                deferredPrompt = null;
+            }
+        };
+    }
 }
 
 if (elements.loginBtn) elements.loginBtn.onclick = () => currentUser ? sbClient.auth.signOut() : elements.authModal?.classList.remove('hidden');
 if (document.getElementById('close-modal-btn')) document.getElementById('close-modal-btn').onclick = () => elements.authModal?.classList.add('hidden');
+
 const toggleAuthModeBtn = document.getElementById('toggle-auth-mode');
-if (toggleAuthModeBtn) toggleAuthModeBtn.onclick = () => { isSignUpMode = !isSignUpMode; elements.signupFields?.classList.toggle('hidden', !isSignUpMode); const authTitle = document.getElementById('auth-title'); if (authTitle) authTitle.textContent = isSignUpMode ? 'Join The Club' : 'Welcome Back'; const authSubmitBtn = document.getElementById('auth-submit-btn'); if (authSubmitBtn) authSubmitBtn.textContent = isSignUpMode ? 'Create Account' : 'Sign In'; };
+if (toggleAuthModeBtn) {
+    toggleAuthModeBtn.onclick = () => {
+        isSignUpMode = !isSignUpMode;
+        elements.signupFields?.classList.toggle('hidden', !isSignUpMode);
+        const authTitle = document.getElementById('auth-title');
+        if (authTitle) authTitle.textContent = isSignUpMode ? 'Join The Club' : 'Welcome Back';
+        const authSubmitBtn = document.getElementById('auth-submit-btn');
+        if (authSubmitBtn) authSubmitBtn.textContent = isSignUpMode ? 'Create Account' : 'Sign In';
+    };
+}
+
 if (elements.authForm) {
     elements.authForm.onsubmit = async (e) => {
         e.preventDefault();
         const email = document.getElementById('auth-email')?.value;
         const password = document.getElementById('auth-password')?.value;
         let result = isSignUpMode ? await sbClient.auth.signUp({ email, password }) : await sbClient.auth.signInWithPassword({ email, password });
+        
         if (!result.error && isSignUpMode) {
             setTimeout(async () => {
-                await sbClient.from('users').update({ first_name: document.getElementById('auth-first-name')?.value || '', last_name: document.getElementById('auth-last-name')?.value || '', fav_team: document.getElementById('auth-fav-team')?.value || '', fav_sport: document.getElementById('auth-fav-sport')?.value || 'Football' }).eq('uid', result.data.user.id);
+                await sbClient.from('users').update({
+                    first_name: document.getElementById('auth-first-name')?.value || '',
+                    last_name: document.getElementById('auth-last-name')?.value || '',
+                    fav_team: document.getElementById('auth-fav-team')?.value || '',
+                    fav_sport: document.getElementById('auth-fav-sport')?.value || 'Football'
+                }).eq('uid', result.data.user.id);
             }, 1000);
         }
         if (result.error) alert(result.error.message); else elements.authModal?.classList.add('hidden');
     };
 }
 
+// Initialise core functionalities
 renderCompetitionFilters();
 initCreateLeagueForm();
 initAdminSyncForm();
