@@ -83,15 +83,15 @@ const competitionConfig = {
         'Champions League': { provider: 'football-data', id: 'CL' }
     },
     'Basketball': {
-        'NBA': { provider: 'thesportsdb', id: '4387', season: '2025-2026' }
+        'NBA': { provider: 'balldontlie', endpoint: 'https://api.balldontlie.io/v1/games' }
     },
     'Am. Football': {
-        'NFL': { provider: 'thesportsdb', id: '4391', season: '2025' }
+        'NFL': { provider: 'balldontlie', endpoint: 'https://api.balldontlie.io/nfl/v1/games' }
     },
     'Rugby': {
-        'Six Nations Championship': { provider: 'thesportsdb', id: '4714', season: '2026' },
-        'English Rugby League Super League': { provider: 'thesportsdb', id: '4415', season: '2026' },
-        'English Prem Rugby': { provider: 'thesportsdb', id: '4414', season: '2025-2026' }
+        'Six Nations Championship': { provider: 'placeholder' },
+        'English Rugby League Super League': { provider: 'placeholder' },
+        'English Prem Rugby': { provider: 'placeholder' }
     }
 };
 
@@ -212,7 +212,7 @@ function switchTab(target) {
     
     const stickyFooter = document.getElementById('sticky-footer');
     if (stickyFooter) {
-        const showFooter = target === 'fix' && currentSubTab === 'upcoming';
+        const showFooter = target === 'fix' && currentSubTab === 'upcoming' && currentSport !== 'Rugby';
         stickyFooter.style.transform = showFooter ? 'translateY(0)' : 'translateY(150%)';
     }
 
@@ -493,6 +493,20 @@ async function fetchLeaderboard() {
 
 async function fetchFixtures() {
     if (!elements.fixtures) return;
+
+    if (currentSport === 'Rugby') {
+        elements.fixtures.innerHTML = `
+            <div class="bg-blue-50 border-l-4 border-blue-500 p-6 rounded-r-xl shadow-sm my-8 text-center">
+                <svg class="w-12 h-12 text-blue-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                <h3 class="text-lg font-black text-blue-900 mb-1 tracking-tight">Rugby Coming Soon</h3>
+                <p class="text-sm text-blue-700">We are currently building out the infrastructure to support full Rugby integration. Check back later!</p>
+            </div>
+        `;
+        const stickyFooter = document.getElementById('sticky-footer');
+        if (stickyFooter) stickyFooter.style.transform = 'translateY(150%)';
+        return;
+    }
+
     try {
         const { data: fixtures, error } = await sbClient.from('fixtures').select('*').eq('sport', currentSport).eq('competition', currentCompetition).eq('status', currentSubTab);
         if (error) throw error;
@@ -545,6 +559,8 @@ async function fetchFixtures() {
 
 function updateButtonLabel() {
     if (!elements.submitBtn) return;
+    if (currentSport === 'Rugby') return;
+    
     if (!currentUser) {
         elements.submitBtn.textContent = "Sign In to Lock In Predictions";
         elements.submitBtn.disabled = true;
@@ -591,6 +607,10 @@ if (elements.syncBtn) {
         const compSelect = document.getElementById('admin-sync-comp')?.value || 'Premier League';
         const config = competitionConfig[sportSelect][compSelect];
 
+        if (config.provider === 'placeholder') {
+            return alert("Syncing for Rugby is currently disabled while under construction.");
+        }
+
         elements.syncBtn.textContent = "Fetching Data...";
         elements.syncBtn.disabled = true;
 
@@ -636,51 +656,83 @@ if (elements.syncBtn) {
                     away: m.score?.fullTime?.away || 0
                 }));
 
-            } else if (config.provider === 'thesportsdb') {
-                const endpoints = [
-                    `https://www.thesportsdb.com/api/v1/json/${apiKey}/eventsnextleague.php?id=${config.id}`,
-                    `https://www.thesportsdb.com/api/v1/json/${apiKey}/eventspastleague.php?id=${config.id}`
-                ];
+            } else if (config.provider === 'balldontlie') {
                 
-                for (let url of endpoints) {
-                    const response = await fetch(url, { method: 'GET' });
+                const pastDate = new Date();
+                pastDate.setDate(today.getDate() - 14);
+                
+                let fetchUrl = "";
+                let fetchConfig = {
+                    method: 'GET',
+                    headers: { 'Authorization': apiKey }
+                };
+
+                if (sportSelect === 'Basketball') {
+                    const startStr = pastDate.toISOString().split('T')[0];
+                    const endStr = maxFutureDate.toISOString().split('T')[0];
+                    fetchUrl = `${config.endpoint}?per_page=100&start_date=${startStr}&end_date=${endStr}`;
+                } else if (sportSelect === 'Am. Football') {
+                    const dateArray = [];
+                    for(let d = new Date(pastDate); d <= maxFutureDate; d.setDate(d.getDate() + 1)) {
+                        dateArray.push(`dates[]=${d.toISOString().split('T')[0]}`);
+                    }
+                    const dateQuery = dateArray.join('&');
+                    fetchUrl = `${config.endpoint}?per_page=100&${dateQuery}`;
+                }
+
+                let pageCounter = 0;
+                let nextCursor = null;
+
+                do {
+                    pageCounter++;
+                    let currentUrl = fetchUrl;
+                    if (nextCursor) {
+                        currentUrl += `&cursor=${nextCursor}`;
+                    }
+
+                    const response = await fetch(currentUrl, fetchConfig);
                     
-                    if (!response.ok) throw new Error(`TheSportsDB Error: ${response.status}`);
+                    if (response.status === 429) {
+                        console.warn("BallDontLie Rate Limit Hit. Stopping pagination gracefully.");
+                        break; 
+                    }
+                    
+                    if (!response.ok) throw new Error(`BallDontLie Error: ${response.status}`);
                     const data = await response.json();
                     
-                    if (data.events) {
-                        data.events.forEach(match => {
-                            const hScore = match.intHomeScore;
-                            const aScore = match.intAwayScore;
-                            const isFinished = hScore !== null && hScore !== "" && typeof hScore !== 'undefined';
-                            
-                            const kickoff = match.strTimestamp || `${match.dateEvent}T${match.strTime || '00:00:00'}`;
+                    if (data.data && data.data.length > 0) {
+                        data.data.forEach(match => {
+                            const isFinished = match.status === 'Final';
+                            const kickoff = match.datetime || match.date; 
                             
                             fixturesToInsert.push({
-                                fixture_id: getShiftedFixtureId(match.idEvent, sportSelect),
-                                api_id: match.idEvent,
+                                fixture_id: getShiftedFixtureId(match.id, sportSelect),
+                                api_id: match.id,
                                 sport: sportSelect,
                                 competition: compSelect,
-                                home_team: match.strHomeTeam || "Unknown",
-                                away_team: match.strAwayTeam || "Unknown",
+                                home_team: match.home_team.full_name || "Unknown",
+                                away_team: match.visitor_team.full_name || "Unknown",
                                 kickoff_time: kickoff,
                                 status: isFinished ? 'finished' : 'upcoming',
-                                home_score_actual: isFinished ? parseInt(hScore) : null,
-                                away_score_actual: isFinished ? parseInt(aScore) : null
+                                home_score_actual: isFinished ? parseInt(match.home_team_score) : null,
+                                away_score_actual: isFinished ? parseInt(match.visitor_team_score) : null
                             });
 
                             if (isFinished) {
                                 finishedMatches.push({
-                                    id: getShiftedFixtureId(match.idEvent, sportSelect),
-                                    home: parseInt(hScore),
-                                    away: parseInt(aScore)
+                                    id: getShiftedFixtureId(match.id, sportSelect),
+                                    home: parseInt(match.home_team_score),
+                                    away: parseInt(match.visitor_team_score)
                                 });
                             }
                         });
                     }
-                }
 
-                if (fixturesToInsert.length === 0) throw new Error("No matches found in API response for this league.");
+                    nextCursor = data.meta?.next_cursor || null;
+
+                } while (nextCursor && pageCounter < 4);
+
+                if (fixturesToInsert.length === 0) throw new Error("No matches found in the 28-day window.");
             }
 
             const { error } = await sbClient.from('fixtures').upsert(fixturesToInsert, { onConflict: 'fixture_id' });
