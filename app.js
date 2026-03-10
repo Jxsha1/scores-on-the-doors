@@ -510,6 +510,18 @@ async function fetchFixtures() {
     }
 
     try {
+        // Fetch the true global time to prevent system clock manipulation
+        let realTime = new Date();
+        try {
+            const timeResponse = await fetch('https://worldtimeapi.org/api/timezone/Etc/UTC');
+            if (timeResponse.ok) {
+                const timeData = await timeResponse.json();
+                realTime = new Date(timeData.datetime);
+            }
+        } catch (e) {
+            console.warn("Could not fetch global time. Falling back to system time.");
+        }
+
         const { data: fixtures, error } = await sbClient.from('fixtures').select('*').eq('sport', currentSport).eq('competition', currentCompetition).eq('status', currentSubTab);
         if (error) throw error;
 
@@ -553,7 +565,7 @@ async function fetchFixtures() {
                     }
                     const kickoffDate = new Date(safeKickoff);
                     
-                    const now = new Date();
+                    const now = realTime;
                     const isFinished = f.status === 'finished';
                     const isOngoing = !isFinished && kickoffDate <= now;
                     const isLocked = isFinished || isOngoing;
