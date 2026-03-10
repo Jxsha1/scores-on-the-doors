@@ -526,29 +526,56 @@ async function fetchFixtures() {
             return currentSubTab === 'upcoming' ? dateA - dateB : dateB - dateA;
         });
 
-        elements.fixtures.innerHTML = displayFixtures.map(f => {
-            const p = userPreds.find(p => p.fixture_id === f.fixture_id);
-            const badge = getBadge(p ? {h: p.home_predicted, a: p.away_predicted} : null, {h: f.home_score_actual, a: f.away_score_actual});
-            const isLocked = f.status === 'finished';
+        const groupedFixtures = displayFixtures.reduce((acc, f) => {
+            let groupLabel = f.match_group;
+            if (!groupLabel) {
+                const d = new Date(f.kickoff_time);
+                groupLabel = d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+            }
+            if (!acc[groupLabel]) acc[groupLabel] = [];
+            acc[groupLabel].push(f);
+            return acc;
+        }, {});
 
-            return `
-            <div class="relative bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mb-4 transition-all" data-id="${f.fixture_id}">
-                ${badge}
-                <div class="flex justify-between items-center text-[9px] font-black text-gray-300 uppercase tracking-widest mb-4">
-                    <span>${new Date(f.kickoff_time).toLocaleDateString('en-GB', {weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute:'2-digit'})}</span>
-                    <span class="${isLocked ? 'text-red-500' : 'text-blue-500'}">${isLocked ? 'FT Result' : 'Upcoming'}</span>
-                </div>
-                <div class="flex items-center justify-between gap-4">
-                    <div class="flex-1 text-right font-black text-sm text-blue-900 leading-tight">${f.home_team}</div>
-                    <div class="flex gap-2">
-                        <input type="number" min="0" id="h-${f.fixture_id}" value="${p ? p.home_predicted : ''}" ${isLocked ? 'disabled' : ''} class="w-12 h-12 text-center bg-gray-50 border-2 border-gray-100 rounded-xl font-black text-lg focus:border-blue-500 outline-none transition-colors ${isLocked ? 'opacity-50' : ''}" placeholder="-">
-                        <input type="number" min="0" id="a-${f.fixture_id}" value="${p ? p.away_predicted : ''}" ${isLocked ? 'disabled' : ''} class="w-12 h-12 text-center bg-gray-50 border-2 border-gray-100 rounded-xl font-black text-lg focus:border-blue-500 outline-none transition-colors ${isLocked ? 'opacity-50' : ''}" placeholder="-">
+        if (displayFixtures.length === 0) {
+            elements.fixtures.innerHTML = `<p class="text-center py-10 text-gray-400">No matches found for ${currentCompetition}.</p>`;
+        } else {
+            elements.fixtures.innerHTML = Object.entries(groupedFixtures).map(([groupName, matches]) => {
+                const matchCards = matches.map(f => {
+                    const p = userPreds.find(p => p.fixture_id === f.fixture_id);
+                    const badge = getBadge(p ? {h: p.home_predicted, a: p.away_predicted} : null, {h: f.home_score_actual, a: f.away_score_actual});
+                    const isLocked = f.status === 'finished';
+                    const timeString = new Date(f.kickoff_time).toLocaleDateString('en-GB', {weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute:'2-digit'});
+
+                    return `
+                    <div class="relative bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mb-4 transition-all" data-id="${f.fixture_id}">
+                        ${badge}
+                        <div class="flex justify-between items-center text-[9px] font-black text-gray-300 uppercase tracking-widest mb-4">
+                            <span>${timeString}</span>
+                            <span class="${isLocked ? 'text-red-500' : 'text-blue-500'}">${isLocked ? 'FT Result' : 'Upcoming'}</span>
+                        </div>
+                        <div class="flex items-center justify-between gap-4">
+                            <div class="flex-1 text-right font-black text-xs sm:text-sm text-blue-900 leading-tight">${f.home_team}</div>
+                            <div class="flex gap-2">
+                                <input type="number" min="0" id="h-${f.fixture_id}" value="${p ? p.home_predicted : ''}" ${isLocked ? 'disabled' : ''} class="w-12 h-12 text-center bg-gray-50 border-2 border-gray-100 rounded-xl font-black text-lg focus:border-blue-500 outline-none transition-colors ${isLocked ? 'opacity-50' : ''}" placeholder="-">
+                                <input type="number" min="0" id="a-${f.fixture_id}" value="${p ? p.away_predicted : ''}" ${isLocked ? 'disabled' : ''} class="w-12 h-12 text-center bg-gray-50 border-2 border-gray-100 rounded-xl font-black text-lg focus:border-blue-500 outline-none transition-colors ${isLocked ? 'opacity-50' : ''}" placeholder="-">
+                            </div>
+                            <div class="flex-1 text-left font-black text-xs sm:text-sm text-blue-900 leading-tight">${f.away_team}</div>
+                        </div>
+                        ${isLocked ? `<div class="mt-4 pt-4 border-t border-gray-50 text-center text-[10px] font-bold text-gray-400">Actual Result: <span class="text-blue-900">${f.home_score_actual} - ${f.away_score_actual}</span></div>` : ''}
+                    </div>`;
+                }).join('');
+
+                return `
+                    <div class="mb-8">
+                        <h3 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-3 pl-3 border-l-4 border-blue-500">
+                            <span class="text-blue-900 text-sm">${groupName}</span>
+                        </h3>
+                        ${matchCards}
                     </div>
-                    <div class="flex-1 text-left font-black text-sm text-blue-900 leading-tight">${f.away_team}</div>
-                </div>
-                ${isLocked ? `<div class="mt-4 pt-4 border-t border-gray-50 text-center text-[10px] font-bold text-gray-400">Actual Result: <span class="text-blue-900">${f.home_score_actual} - ${f.away_score_actual}</span></div>` : ''}
-            </div>`;
-        }).join('') || `<p class="text-center py-10 text-gray-400">No matches found for ${currentCompetition}.</p>`;
+                `;
+            }).join('');
+        }
         
         updateButtonLabel();
 
@@ -647,7 +674,8 @@ if (elements.syncBtn) {
                     kickoff_time: match.utcDate,
                     status: match.status === 'FINISHED' ? 'finished' : 'upcoming',
                     home_score_actual: match.status === 'FINISHED' ? match.score?.fullTime?.home : null,
-                    away_score_actual: match.status === 'FINISHED' ? match.score?.fullTime?.away : null
+                    away_score_actual: match.status === 'FINISHED' ? match.score?.fullTime?.away : null,
+                    match_group: match.matchday ? `Matchday ${match.matchday}` : (match.stage ? match.stage.replace(/_/g, ' ') : null)
                 }));
 
                 finishedMatches = data.matches.filter(m => m.status === 'FINISHED').map(m => ({
@@ -704,6 +732,14 @@ if (elements.syncBtn) {
                         data.data.forEach(match => {
                             const isFinished = match.status === 'Final';
                             const kickoff = match.datetime || match.date; 
+
+                            let groupString = null;
+                            if (sportSelect === 'Am. Football' && match.week) {
+                                groupString = `Week ${match.week}`;
+                            } else if (sportSelect === 'Basketball') {
+                                const d = new Date(kickoff);
+                                groupString = d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+                            }
                             
                             fixturesToInsert.push({
                                 fixture_id: getShiftedFixtureId(match.id, sportSelect),
@@ -715,7 +751,8 @@ if (elements.syncBtn) {
                                 kickoff_time: kickoff,
                                 status: isFinished ? 'finished' : 'upcoming',
                                 home_score_actual: isFinished ? parseInt(match.home_team_score) : null,
-                                away_score_actual: isFinished ? parseInt(match.visitor_team_score) : null
+                                away_score_actual: isFinished ? parseInt(match.visitor_team_score) : null,
+                                match_group: groupString
                             });
 
                             if (isFinished) {
