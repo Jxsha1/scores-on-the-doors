@@ -66,6 +66,10 @@ const elements = {
         btn: document.getElementById('pwa-install-btn'), 
         close: document.getElementById('pwa-close-btn'), 
         text: document.getElementById('pwa-install-text') 
+    },
+    cookies: {
+        banner: document.getElementById('cookie-consent-banner'),
+        acceptBtn: document.getElementById('accept-cookies-btn')
     }
 };
 
@@ -1017,6 +1021,20 @@ if (elements.authForm) {
         const password = document.getElementById('auth-password')?.value;
         let result = isSignUpMode ? await sbClient.auth.signUp({ email, password }) : await sbClient.auth.signInWithPassword({ email, password });
         
+        if (!result.error && isSignUpMode) {
+            setTimeout(async () => {
+                await sbClient.from('users').update({
+                    first_name: document.getElementById('auth-first-name')?.value || '',
+                    last_name: document.getElementById('auth-last-name')?.value || '',
+                    fav_team: document.getElementById('auth-fav-team')?.value || '',
+                    fav_sport: document.getElementById('auth-fav-sport')?.value || 'Football'
+                }).eq('uid', result.data.user.id);
+            }, 1000);
+        }
+        if (result.error) alert(result.error.message); else elements.authModal?.classList.add('hidden');
+    };
+}
+
 // Cookie Consent Logic
 if (elements.cookies?.banner && elements.cookies?.acceptBtn) {
     if (!localStorage.getItem('sotd_cookie_consent')) {
