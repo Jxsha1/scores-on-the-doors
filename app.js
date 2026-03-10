@@ -510,14 +510,11 @@ async function fetchFixtures() {
     }
 
     try {
-        // Fetch the true global time to prevent system clock manipulation
         let realTime = new Date();
         try {
-            const timeResponse = await fetch('https://worldtimeapi.org/api/timezone/Etc/UTC');
-            if (timeResponse.ok) {
-                const timeData = await timeResponse.json();
-                realTime = new Date(timeData.datetime);
-            }
+            const timeResponse = await fetch(`${PROJECT_URL}/rest/v1/`, { method: 'HEAD', headers: { 'apikey': ANON_KEY }, cache: 'no-store' });
+            const serverDate = timeResponse.headers.get('date');
+            if (serverDate) realTime = new Date(serverDate);
         } catch (e) {
             console.warn("Could not fetch global time. Falling back to system time.");
         }
@@ -632,24 +629,60 @@ function updateButtonLabel() {
 
 if (elements.submitBtn) {
     elements.submitBtn.onclick = async () => {
-        const preds = [];
+        let preds = [];
         document.querySelectorAll('[data-id]').forEach(div => {
             const id = div.dataset.id;
             const hInput = document.getElementById(`h-${id}`);
             const aInput = document.getElementById(`a-${id}`);
             
-            if (hInput && aInput && !hInput.disabled) {
-                const h = hInput.value;
-                const a = aInput.value;
-                if (h !== "" && a !== "") {
-                    preds.push({ uid: currentUser.id, fixture_id: parseInt(id), home_predicted: parseInt(h), away_predicted: parseInt(a) });
-                }
+            if (hInput && aInput && hInput.value !== "" && aInput.value !== "") {
+                preds.push({ uid: currentUser.id, fixture_id: parseInt(id), home_predicted: parseInt(hInput.value), away_predicted: parseInt(aInput.value) });
             }
         });
 
         if (preds.length === 0) return alert("Enter scores first!");
+        elements.submitBtn.textContent = "Verifying Time...";
+
+        let submitTime = new Date();
+        try {
+            const timeResponse = await fetch(`${PROJECT_URL}/rest/v1/`, { method: 'HEAD', headers: { 'apikey': ANON_KEY }, cache: 'no-store' });
+            if (timeResponse.headers.get('date')) submitTime = new Date(timeResponse.headers.get('date'));
+        } catch (e) {
+            console.warn("Could not verify server time.");
+        }
+
+        const { data: verifyFixtures } = await sbClient.from('fixtures').select('fixture_id, kickoff_time').in('fixture_id', preds.map(p => p.fixture_id));
+        
+        let validPreds = [];
+        let invalidCount = 0;
+        
+        if (verifyFixtures) {
+            preds.forEach(p => {
+                const fix = verifyFixtures.find(f => f.fixture_id === p.fixture_id);
+                if (fix) {
+                    let safeKickoff = fix.kickoff_time;
+                    if (!safeKickoff.endsWith('Z') && !safeKickoff.includes('+')) safeKickoff += 'Z';
+                    if (new Date(safeKickoff) > submitTime) {
+                        validPreds.push(p);
+                    } else {
+                        invalidCount++;
+                    }
+                }
+            });
+        } else {
+            validPreds = preds; 
+        }
+
+        if (invalidCount > 0) {
+            alert(`ACTION BLOCKED: ${invalidCount} match(es) have already kicked off. We have stripped them from your submission to prevent cheating.`);
+            if (validPreds.length === 0) {
+                fetchFixtures();
+                return;
+            }
+        }
+
         elements.submitBtn.textContent = "Processing...";
-        const { error } = await sbClient.from('predictions').upsert(preds, { onConflict: 'uid, fixture_id' });
+        const { error } = await sbClient.from('predictions').upsert(validPreds, { onConflict: 'uid, fixture_id' });
         if (error) alert("Error saving: " + error.message); else { alert("Scores Saved!"); fetchFixtures(); }
     };
 }
@@ -694,11 +727,20 @@ if (elements.syncBtn) {
                 if (!data.matches || data.matches.length === 0) throw new Error("No matches found.");
 
                 fixturesToInsert = data.matches.map(match => {
+                    const formatStage = (stage) => {
+                        if (!stage) return null;
+                        let s = stage.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
+                        return s === 'Regular Season' ? 'Group Stage' : s;
+                    };
                     let groupStr = null;
-                    const formatStage = (stage) => stage ? stage.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase()) : null;
                     
                     if (compSelect === 'Champions League' || compSelect === 'World Cup') {
-                        groupStr = match.stage ? formatStage(match.stage) : `Matchday ${match.matchday}`;
+                        const stageName = formatStage(match.stage);
+                        if (match.stage === 'REGULAR_SEASON' || match.stage === 'GROUP_STAGE') {
+                            groupStr = stageName ? `${stageName} - Matchday ${match.matchday}` : `Matchday ${match.matchday}`;
+                        } else {
+                            groupStr = stageName || `Matchday ${match.matchday}`;
+                        }
                     } else {
                         groupStr = match.matchday ? `Matchday ${match.matchday}` : formatStage(match.stage);
                     }

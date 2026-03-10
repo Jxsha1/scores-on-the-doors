@@ -72,11 +72,20 @@ async function syncSport(sportSelect, compSelect, config) {
             
             if (data.matches && data.matches.length > 0) {
                 fixturesToInsert = data.matches.map(match => {
+                    const formatStage = (stage) => {
+                        if (!stage) return null;
+                        let s = stage.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
+                        return s === 'Regular Season' ? 'Group Stage' : s;
+                    };
                     let groupStr = null;
-                    const formatStage = (stage) => stage ? stage.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase()) : null;
                     
                     if (compSelect === 'Champions League' || compSelect === 'World Cup') {
-                        groupStr = match.stage ? formatStage(match.stage) : `Matchday ${match.matchday}`;
+                        const stageName = formatStage(match.stage);
+                        if (match.stage === 'REGULAR_SEASON' || match.stage === 'GROUP_STAGE') {
+                            groupStr = stageName ? `${stageName} - Matchday ${match.matchday}` : `Matchday ${match.matchday}`;
+                        } else {
+                            groupStr = stageName || `Matchday ${match.matchday}`;
+                        }
                     } else {
                         groupStr = match.matchday ? `Matchday ${match.matchday}` : formatStage(match.stage);
                     }
