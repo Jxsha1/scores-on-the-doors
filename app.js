@@ -566,10 +566,19 @@ async function fetchFixtures() {
                     const isFinished = f.status === 'finished';
                     const isOngoing = !isFinished && kickoffDate <= now;
                     const isLocked = isFinished || isOngoing;
+                    const hasPredicted = p !== undefined && p !== null;
+                    const disableInputs = isLocked || hasPredicted;
                     
                     let statusBadge = '<span class="text-blue-500">Upcoming</span>';
                     if (isFinished) statusBadge = '<span class="text-red-500">FT Result</span>';
                     else if (isOngoing) statusBadge = '<span class="text-green-500 animate-pulse font-black">LIVE</span>';
+
+                    let editIcon = '';
+                    if (hasPredicted && !isLocked) {
+                        editIcon = `<button onclick="enableEdit(${f.fixture_id})" id="edit-btn-${f.fixture_id}" class="ml-2 text-blue-400 hover:text-blue-700 transition-colors" title="Edit Prediction">
+                            <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                        </button>`;
+                    }
 
                     const timeString = kickoffDate.toLocaleDateString('en-GB', {weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute:'2-digit', timeZoneName: 'short'});
 
@@ -578,13 +587,16 @@ async function fetchFixtures() {
                         ${badge}
                         <div class="flex justify-between items-center text-[9px] font-black text-gray-300 uppercase tracking-widest mb-4">
                             <span>${timeString}</span>
-                            ${statusBadge}
+                            <div class="flex items-center">
+                                ${statusBadge}
+                                ${editIcon}
+                            </div>
                         </div>
                         <div class="flex items-center justify-between gap-4">
                             <div class="flex-1 text-right font-black text-xs sm:text-sm text-blue-900 leading-tight">${f.home_team}</div>
                             <div class="flex gap-2">
-                                <input type="number" min="0" id="h-${f.fixture_id}" value="${p ? p.home_predicted : ''}" ${isLocked ? 'disabled' : ''} class="w-12 h-12 text-center bg-gray-50 border-2 border-gray-100 rounded-xl font-black text-lg focus:border-blue-500 outline-none transition-colors ${isLocked ? 'opacity-50' : ''}" placeholder="-">
-                                <input type="number" min="0" id="a-${f.fixture_id}" value="${p ? p.away_predicted : ''}" ${isLocked ? 'disabled' : ''} class="w-12 h-12 text-center bg-gray-50 border-2 border-gray-100 rounded-xl font-black text-lg focus:border-blue-500 outline-none transition-colors ${isLocked ? 'opacity-50' : ''}" placeholder="-">
+                                <input type="number" min="0" id="h-${f.fixture_id}" value="${p ? p.home_predicted : ''}" ${disableInputs ? 'disabled' : ''} class="w-12 h-12 text-center border-2 border-gray-100 rounded-xl font-black text-lg focus:border-blue-500 outline-none transition-colors ${isLocked ? 'bg-gray-50 opacity-50' : (hasPredicted ? 'bg-blue-50 opacity-90 text-blue-900' : 'bg-gray-50')} input-score-${f.fixture_id}" placeholder="-">
+                                <input type="number" min="0" id="a-${f.fixture_id}" value="${p ? p.away_predicted : ''}" ${disableInputs ? 'disabled' : ''} class="w-12 h-12 text-center border-2 border-gray-100 rounded-xl font-black text-lg focus:border-blue-500 outline-none transition-colors ${isLocked ? 'bg-gray-50 opacity-50' : (hasPredicted ? 'bg-blue-50 opacity-90 text-blue-900' : 'bg-gray-50')} input-score-${f.fixture_id}" placeholder="-">
                             </div>
                             <div class="flex-1 text-left font-black text-xs sm:text-sm text-blue-900 leading-tight">${f.away_team}</div>
                         </div>
@@ -622,10 +634,29 @@ function updateButtonLabel() {
     } else {
         elements.submitBtn.disabled = false;
         elements.submitBtn.className = "w-full max-w-md bg-blue-900 text-white font-black py-4 rounded-2xl shadow-xl active:scale-95 transition-all hover:bg-blue-800";
-        elements.submitBtn.textContent = hasExistingPredictions ? "Amend Predictions" : "Lock In Predictions";
+        elements.submitBtn.textContent = "Lock In Predictions";
         if(elements.status) elements.status.textContent = `Welcome back, ${currentUser.email.split('@')[0]}!`;
     }
 }
+
+window.enableEdit = (id) => {
+    const h = document.getElementById(`h-${id}`);
+    const a = document.getElementById(`a-${id}`);
+    const btn = document.getElementById(`edit-btn-${id}`);
+    
+    if (h) {
+        h.disabled = false;
+        h.classList.remove('bg-blue-50', 'opacity-90', 'text-blue-900');
+        h.classList.add('bg-gray-50');
+        h.focus();
+    }
+    if (a) {
+        a.disabled = false;
+        a.classList.remove('bg-blue-50', 'opacity-90', 'text-blue-900');
+        a.classList.add('bg-gray-50');
+    }
+    if (btn) btn.classList.add('hidden');
+};
 
 if (elements.submitBtn) {
     elements.submitBtn.onclick = async () => {
