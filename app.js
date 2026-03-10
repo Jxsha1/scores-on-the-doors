@@ -539,12 +539,12 @@ async function fetchFixtures() {
                     <span class="${isLocked ? 'text-red-500' : 'text-blue-500'}">${isLocked ? 'FT Result' : 'Upcoming'}</span>
                 </div>
                 <div class="flex items-center justify-between gap-4">
-                    <div class="flex-1 text-right font-black text-sm text-blue-900 truncate">${f.home_team}</div>
+                    <div class="flex-1 text-right font-black text-sm text-blue-900 leading-tight">${f.home_team}</div>
                     <div class="flex gap-2">
                         <input type="number" min="0" id="h-${f.fixture_id}" value="${p ? p.home_predicted : ''}" ${isLocked ? 'disabled' : ''} class="w-12 h-12 text-center bg-gray-50 border-2 border-gray-100 rounded-xl font-black text-lg focus:border-blue-500 outline-none transition-colors ${isLocked ? 'opacity-50' : ''}" placeholder="-">
                         <input type="number" min="0" id="a-${f.fixture_id}" value="${p ? p.away_predicted : ''}" ${isLocked ? 'disabled' : ''} class="w-12 h-12 text-center bg-gray-50 border-2 border-gray-100 rounded-xl font-black text-lg focus:border-blue-500 outline-none transition-colors ${isLocked ? 'opacity-50' : ''}" placeholder="-">
                     </div>
-                    <div class="flex-1 text-left font-black text-sm text-blue-900 truncate">${f.away_team}</div>
+                    <div class="flex-1 text-left font-black text-sm text-blue-900 leading-tight">${f.away_team}</div>
                 </div>
                 ${isLocked ? `<div class="mt-4 pt-4 border-t border-gray-50 text-center text-[10px] font-bold text-gray-400">Actual Result: <span class="text-blue-900">${f.home_score_actual} - ${f.away_score_actual}</span></div>` : ''}
             </div>`;
