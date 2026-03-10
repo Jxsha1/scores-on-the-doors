@@ -71,19 +71,30 @@ async function syncSport(sportSelect, compSelect, config) {
             const data = await response.json();
             
             if (data.matches && data.matches.length > 0) {
-                fixturesToInsert = data.matches.map(match => ({
-                    fixture_id: getShiftedFixtureId(match.id, sportSelect),
-                    api_id: match.id,
-                    sport: sportSelect,
-                    competition: compSelect,
-                    home_team: match.homeTeam?.name || "Unknown",
-                    away_team: match.awayTeam?.name || "Unknown",
-                    kickoff_time: match.utcDate,
-                    status: match.status === 'FINISHED' ? 'finished' : 'upcoming',
-                    home_score_actual: match.status === 'FINISHED' ? match.score?.fullTime?.home : null,
-                    away_score_actual: match.status === 'FINISHED' ? match.score?.fullTime?.away : null,
-                    match_group: match.matchday ? `Matchday ${match.matchday}` : (match.stage ? match.stage.replace(/_/g, ' ') : null)
-                }));
+                fixturesToInsert = data.matches.map(match => {
+                    let groupStr = null;
+                    const formatStage = (stage) => stage ? stage.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase()) : null;
+                    
+                    if (compSelect === 'Champions League' || compSelect === 'World Cup') {
+                        groupStr = match.stage ? formatStage(match.stage) : `Matchday ${match.matchday}`;
+                    } else {
+                        groupStr = match.matchday ? `Matchday ${match.matchday}` : formatStage(match.stage);
+                    }
+
+                    return {
+                        fixture_id: getShiftedFixtureId(match.id, sportSelect),
+                        api_id: match.id,
+                        sport: sportSelect,
+                        competition: compSelect,
+                        home_team: match.homeTeam?.name || "Unknown",
+                        away_team: match.awayTeam?.name || "Unknown",
+                        kickoff_time: match.utcDate,
+                        status: match.status === 'FINISHED' ? 'finished' : 'upcoming',
+                        home_score_actual: match.status === 'FINISHED' ? match.score?.fullTime?.home : null,
+                        away_score_actual: match.status === 'FINISHED' ? match.score?.fullTime?.away : null,
+                        match_group: groupStr
+                    };
+                });
 
                 finishedMatches = data.matches.filter(m => m.status === 'FINISHED').map(m => ({
                     id: getShiftedFixtureId(m.id, sportSelect), 
@@ -138,30 +149,30 @@ async function syncSport(sportSelect, compSelect, config) {
                 
                 if (data.data && data.data.length > 0) {
                     data.data.forEach(match => {
-                            const isFinished = match.status === 'Final';
-                            const kickoff = match.datetime || match.date; 
+                        const isFinished = match.status === 'Final';
+                        const kickoff = match.datetime || match.date; 
 
-                            let groupString = null;
-                            if (sportSelect === 'Am. Football' && match.week) {
-                                groupString = `Week ${match.week}`;
-                            } else if (sportSelect === 'Basketball') {
-                                const d = new Date(kickoff);
-                                groupString = d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
-                            }
-                            
-                            fixturesToInsert.push({
-                                fixture_id: getShiftedFixtureId(match.id, sportSelect),
-                                api_id: match.id,
-                                sport: sportSelect,
-                                competition: compSelect,
-                                home_team: match.home_team.full_name || "Unknown",
-                                away_team: match.visitor_team.full_name || "Unknown",
-                                kickoff_time: kickoff,
-                                status: isFinished ? 'finished' : 'upcoming',
-                                home_score_actual: isFinished ? parseInt(match.home_team_score) : null,
-                                away_score_actual: isFinished ? parseInt(match.visitor_team_score) : null,
-                                match_group: groupString
-                            });
+                        let groupString = null;
+                        if (sportSelect === 'Am. Football' && match.week) {
+                            groupString = `Week ${match.week}`;
+                        } else if (sportSelect === 'Basketball') {
+                            const d = new Date(kickoff);
+                            groupString = d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+                        }
+                        
+                        fixturesToInsert.push({
+                            fixture_id: getShiftedFixtureId(match.id, sportSelect),
+                            api_id: match.id,
+                            sport: sportSelect,
+                            competition: compSelect,
+                            home_team: match.home_team.full_name || "Unknown",
+                            away_team: match.visitor_team.full_name || "Unknown",
+                            kickoff_time: kickoff,
+                            status: isFinished ? 'finished' : 'upcoming',
+                            home_score_actual: isFinished ? parseInt(match.home_team_score) : null,
+                            away_score_actual: isFinished ? parseInt(match.visitor_team_score) : null,
+                            match_group: groupString
+                        });
 
                         if (isFinished) {
                             finishedMatches.push({
