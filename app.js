@@ -594,6 +594,19 @@ async function fetchFixtures() {
                         timeString = kickoffDate.toLocaleDateString('en-GB', {weekday: 'short', day: '2-digit', month: 'short'}) + ' (TBD)';
                     }
 
+                    let apparelSearch = ' merchandise';
+                    let btnText = 'Buy Gear';
+                    if (currentSport === 'Football') {
+                        apparelSearch = ' football shirt';
+                        btnText = 'Buy Kit';
+                    } else if (currentSport === 'Basketball') {
+                        apparelSearch = ' basketball jersey';
+                        btnText = 'Buy Jersey';
+                    } else if (currentSport === 'Am. Football') {
+                        apparelSearch = ' nfl jersey';
+                        btnText = 'Buy Jersey';
+                    }
+
                     return `
                     <div class="relative bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mb-4 transition-all" data-id="${f.fixture_id}">
                         ${badge}
@@ -607,9 +620,9 @@ async function fetchFixtures() {
                         <div class="flex items-center justify-between gap-4">
                             <div class="flex-1 text-right flex flex-col justify-center items-end">
                                 <span class="font-black text-xs sm:text-sm text-blue-900 leading-tight">${f.home_team}</span>
-                                <a href="https://www.google.com/search?tbm=shop&q=${encodeURIComponent(f.home_team + ' football shirt')}" target="_blank" class="inline-flex items-center gap-1 text-[9px] bg-gradient-to-r from-blue-600 to-blue-800 hover:from-blue-500 hover:to-blue-700 text-white font-black uppercase tracking-widest mt-1.5 py-1 px-2.5 rounded-lg shadow-sm transition-all active:scale-95">
+                                <a href="https://www.google.com/search?tbm=shop&q=${encodeURIComponent(f.home_team + apparelSearch)}" target="_blank" class="inline-flex items-center gap-1 text-[9px] bg-gradient-to-r from-blue-600 to-blue-800 hover:from-blue-500 hover:to-blue-700 text-white font-black uppercase tracking-widest mt-1.5 py-1 px-2.5 rounded-lg shadow-sm transition-all active:scale-95">
                                     <svg class="w-3 h-3 opacity-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path></svg>
-                                    Buy Kit
+                                    ${btnText}
                                 </a>
                             </div>
                             <div class="flex gap-2">
@@ -618,9 +631,9 @@ async function fetchFixtures() {
                             </div>
                             <div class="flex-1 text-left flex flex-col justify-center items-start">
                                 <span class="font-black text-xs sm:text-sm text-blue-900 leading-tight">${f.away_team}</span>
-                                <a href="https://www.google.com/search?tbm=shop&q=${encodeURIComponent(f.away_team + ' football shirt')}" target="_blank" class="inline-flex items-center gap-1 text-[9px] bg-gradient-to-r from-blue-600 to-blue-800 hover:from-blue-500 hover:to-blue-700 text-white font-black uppercase tracking-widest mt-1.5 py-1 px-2.5 rounded-lg shadow-sm transition-all active:scale-95">
+                                <a href="https://www.google.com/search?tbm=shop&q=${encodeURIComponent(f.away_team + apparelSearch)}" target="_blank" class="inline-flex items-center gap-1 text-[9px] bg-gradient-to-r from-blue-600 to-blue-800 hover:from-blue-500 hover:to-blue-700 text-white font-black uppercase tracking-widest mt-1.5 py-1 px-2.5 rounded-lg shadow-sm transition-all active:scale-95">
                                     <svg class="w-3 h-3 opacity-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path></svg>
-                                    Buy Kit
+                                    ${btnText}
                                 </a>
                             </div>
                         </div>
