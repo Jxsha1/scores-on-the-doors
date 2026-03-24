@@ -606,6 +606,9 @@ async function fetchFixtures() {
                         apparelSearch = ' nfl jersey';
                         btnText = 'Buy Jersey';
                     }
+                    
+                    const homeLogoHtml = f.home_logo ? `<img src="${f.home_logo}" alt="${f.home_team} logo" class="w-6 h-6 sm:w-8 sm:h-8 object-contain drop-shadow-sm flex-shrink-0" onerror="this.style.display='none'">` : '';
+                    const awayLogoHtml = f.away_logo ? `<img src="${f.away_logo}" alt="${f.away_team} logo" class="w-6 h-6 sm:w-8 sm:h-8 object-contain drop-shadow-sm flex-shrink-0" onerror="this.style.display='none'">` : '';
 
                     return `
                     <div class="relative bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mb-4 transition-all" data-id="${f.fixture_id}">
@@ -619,7 +622,10 @@ async function fetchFixtures() {
                         </div>
                         <div class="flex items-center justify-between gap-4">
                             <div class="flex-1 text-right flex flex-col justify-center items-end">
-                                <span class="font-black text-xs sm:text-sm text-blue-900 leading-tight">${f.home_team}</span>
+                                <div class="flex items-center justify-end gap-2 w-full">
+                                    <span class="font-black text-xs sm:text-sm text-blue-900 leading-tight">${f.home_team}</span>
+                                    ${homeLogoHtml}
+                                </div>
                                 <a href="https://www.google.com/search?tbm=shop&q=${encodeURIComponent(f.home_team + apparelSearch)}" target="_blank" class="inline-flex items-center gap-1 text-[9px] bg-gradient-to-r from-blue-600 to-blue-800 hover:from-blue-500 hover:to-blue-700 text-white font-black uppercase tracking-widest mt-1.5 py-1 px-2.5 rounded-lg shadow-sm transition-all active:scale-95">
                                     <svg class="w-3 h-3 opacity-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path></svg>
                                     ${btnText}
@@ -630,7 +636,10 @@ async function fetchFixtures() {
                                 <input type="number" min="0" id="a-${f.fixture_id}" value="${p ? p.away_predicted : ''}" ${disableInputs ? 'disabled' : ''} class="w-12 h-12 text-center border-2 border-gray-100 rounded-xl font-black text-lg focus:border-blue-500 outline-none transition-colors ${isLocked ? 'bg-gray-50 opacity-50' : (hasPredicted ? 'bg-blue-50 opacity-90 text-blue-900' : 'bg-gray-50')} input-score-${f.fixture_id}" placeholder="-">
                             </div>
                             <div class="flex-1 text-left flex flex-col justify-center items-start">
-                                <span class="font-black text-xs sm:text-sm text-blue-900 leading-tight">${f.away_team}</span>
+                                <div class="flex items-center justify-start gap-2 w-full">
+                                    ${awayLogoHtml}
+                                    <span class="font-black text-xs sm:text-sm text-blue-900 leading-tight">${f.away_team}</span>
+                                </div>
                                 <a href="https://www.google.com/search?tbm=shop&q=${encodeURIComponent(f.away_team + apparelSearch)}" target="_blank" class="inline-flex items-center gap-1 text-[9px] bg-gradient-to-r from-blue-600 to-blue-800 hover:from-blue-500 hover:to-blue-700 text-white font-black uppercase tracking-widest mt-1.5 py-1 px-2.5 rounded-lg shadow-sm transition-all active:scale-95">
                                     <svg class="w-3 h-3 opacity-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path></svg>
                                     ${btnText}
@@ -824,7 +833,9 @@ if (elements.syncBtn) {
                         status: match.status === 'FINISHED' ? 'finished' : 'upcoming',
                         home_score_actual: match.status === 'FINISHED' ? match.score?.fullTime?.home : null,
                         away_score_actual: match.status === 'FINISHED' ? match.score?.fullTime?.away : null,
-                        match_group: groupStr
+                        match_group: groupStr,
+                        home_logo: match.homeTeam?.crest || null,
+                        away_logo: match.awayTeam?.crest || null
                     };
                 });
 
@@ -884,11 +895,18 @@ if (elements.syncBtn) {
                             const kickoff = match.datetime || match.date; 
 
                             let groupString = null;
+                            let hLogo = null;
+                            let aLogo = null;
+
                             if (sportSelect === 'Am. Football' && match.week) {
                                 groupString = `Week ${match.week}`;
+                                hLogo = match.home_team?.abbreviation ? `https://a.espncdn.com/i/teamlogos/nfl/500/${match.home_team.abbreviation.toLowerCase()}.png` : null;
+                                aLogo = match.visitor_team?.abbreviation ? `https://a.espncdn.com/i/teamlogos/nfl/500/${match.visitor_team.abbreviation.toLowerCase()}.png` : null;
                             } else if (sportSelect === 'Basketball') {
                                 const d = new Date(kickoff);
                                 groupString = d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+                                hLogo = match.home_team?.abbreviation ? `https://a.espncdn.com/i/teamlogos/nba/500/${match.home_team.abbreviation.toLowerCase()}.png` : null;
+                                aLogo = match.visitor_team?.abbreviation ? `https://a.espncdn.com/i/teamlogos/nba/500/${match.visitor_team.abbreviation.toLowerCase()}.png` : null;
                             }
                             
                             fixturesToInsert.push({
@@ -902,7 +920,9 @@ if (elements.syncBtn) {
                                 status: isFinished ? 'finished' : 'upcoming',
                                 home_score_actual: isFinished ? parseInt(match.home_team_score) : null,
                                 away_score_actual: isFinished ? parseInt(match.visitor_team_score) : null,
-                                match_group: groupString
+                                match_group: groupString,
+                                home_logo: hLogo,
+                                away_logo: aLogo
                             });
 
                             if (isFinished) {
