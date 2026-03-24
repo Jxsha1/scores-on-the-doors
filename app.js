@@ -503,7 +503,7 @@ async function fetchFixtures() {
     if (currentSport === 'Rugby') {
         elements.fixtures.innerHTML = `
             <div class="bg-blue-50 border-l-4 border-blue-500 p-6 rounded-r-xl shadow-sm my-8 text-center">
-                <svg class="w-12 h-12 text-blue-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012-2v2M7 7h10"></path></svg>
+                <svg class="w-12 h-12 text-blue-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
                 <h3 class="text-lg font-black text-blue-900 mb-1 tracking-tight">Rugby Coming Soon</h3>
                 <p class="text-sm text-blue-700">We are currently building out the infrastructure to support full Rugby integration. Check back later!</p>
             </div>
@@ -605,17 +605,23 @@ async function fetchFixtures() {
                             </div>
                         </div>
                         <div class="flex items-center justify-between gap-4">
-                            <div class="flex-1 text-right flex flex-col justify-center">
+                            <div class="flex-1 text-right flex flex-col justify-center items-end">
                                 <span class="font-black text-xs sm:text-sm text-blue-900 leading-tight">${f.home_team}</span>
-                                <a href="https://www.google.com/search?tbm=shop&q=${encodeURIComponent(f.home_team + ' football shirt')}" target="_blank" class="text-[8px] text-gray-400 hover:text-blue-500 font-bold uppercase tracking-widest mt-1 transition-colors">Buy Kit</a>
+                                <a href="https://www.google.com/search?tbm=shop&q=${encodeURIComponent(f.home_team + ' football shirt')}" target="_blank" class="inline-flex items-center gap-1 text-[9px] bg-gradient-to-r from-blue-600 to-blue-800 hover:from-blue-500 hover:to-blue-700 text-white font-black uppercase tracking-widest mt-1.5 py-1 px-2.5 rounded-lg shadow-sm transition-all active:scale-95">
+                                    <svg class="w-3 h-3 opacity-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path></svg>
+                                    Buy Kit
+                                </a>
                             </div>
                             <div class="flex gap-2">
                                 <input type="number" min="0" id="h-${f.fixture_id}" value="${p ? p.home_predicted : ''}" ${disableInputs ? 'disabled' : ''} class="w-12 h-12 text-center border-2 border-gray-100 rounded-xl font-black text-lg focus:border-blue-500 outline-none transition-colors ${isLocked ? 'bg-gray-50 opacity-50' : (hasPredicted ? 'bg-blue-50 opacity-90 text-blue-900' : 'bg-gray-50')} input-score-${f.fixture_id}" placeholder="-">
                                 <input type="number" min="0" id="a-${f.fixture_id}" value="${p ? p.away_predicted : ''}" ${disableInputs ? 'disabled' : ''} class="w-12 h-12 text-center border-2 border-gray-100 rounded-xl font-black text-lg focus:border-blue-500 outline-none transition-colors ${isLocked ? 'bg-gray-50 opacity-50' : (hasPredicted ? 'bg-blue-50 opacity-90 text-blue-900' : 'bg-gray-50')} input-score-${f.fixture_id}" placeholder="-">
                             </div>
-                            <div class="flex-1 text-left flex flex-col justify-center">
+                            <div class="flex-1 text-left flex flex-col justify-center items-start">
                                 <span class="font-black text-xs sm:text-sm text-blue-900 leading-tight">${f.away_team}</span>
-                                <a href="https://www.google.com/search?tbm=shop&q=${encodeURIComponent(f.away_team + ' football shirt')}" target="_blank" class="text-[8px] text-gray-400 hover:text-blue-500 font-bold uppercase tracking-widest mt-1 transition-colors">Buy Kit</a>
+                                <a href="https://www.google.com/search?tbm=shop&q=${encodeURIComponent(f.away_team + ' football shirt')}" target="_blank" class="inline-flex items-center gap-1 text-[9px] bg-gradient-to-r from-blue-600 to-blue-800 hover:from-blue-500 hover:to-blue-700 text-white font-black uppercase tracking-widest mt-1.5 py-1 px-2.5 rounded-lg shadow-sm transition-all active:scale-95">
+                                    <svg class="w-3 h-3 opacity-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path></svg>
+                                    Buy Kit
+                                </a>
                             </div>
                         </div>
                         ${isFinished ? `<div class="mt-4 pt-4 border-t border-gray-50 text-center text-[10px] font-bold text-gray-400">Actual Result: <span class="text-blue-900">${f.home_score_actual} - ${f.away_score_actual}</span></div>` : ''}
