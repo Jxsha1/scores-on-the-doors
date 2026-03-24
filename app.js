@@ -607,7 +607,7 @@ async function fetchFixtures() {
                         btnText = 'Buy Jersey';
                     }
                     
-                    const fallbackLogo = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23cbd5e1'%3E%3Cpath d='M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z'/%3E%3C/svg%3E";
+                    const fallbackLogo = "data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22%23cbd5e1%22%3E%3Cpath d=%22M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z%22/%3E%3C/svg%3E";
                     
                     const homeLogoHtml = `<img src="${f.home_logo || fallbackLogo}" alt="${f.home_team} logo" class="w-6 h-6 sm:w-8 sm:h-8 object-contain drop-shadow-sm flex-shrink-0" onerror="this.src='${fallbackLogo}'">`;
                     const awayLogoHtml = `<img src="${f.away_logo || fallbackLogo}" alt="${f.away_team} logo" class="w-6 h-6 sm:w-8 sm:h-8 object-contain drop-shadow-sm flex-shrink-0" onerror="this.src='${fallbackLogo}'">`;
