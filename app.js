@@ -128,6 +128,7 @@ let hasExistingPredictions = false;
 let currentSubTab = 'upcoming'; 
 let currentSport = 'Football';
 let currentCompetition = sportConfig['Football'][0];
+let userLeaguesData = [];
 let deferredPrompt; 
 
 function updateSEO(pageName, description) {
@@ -135,6 +136,15 @@ function updateSEO(pageName, description) {
     const metaDesc = document.querySelector('meta[name="description"]');
     if (metaDesc) {
         metaDesc.setAttribute('content', description);
+    }
+}
+
+function populateFixtureLeagueFilter() {
+    const filtersContainer = document.getElementById('competition-filters');
+    if (filtersContainer && !document.getElementById('fixture-league-context')) {
+        const selectHtml = `<select id="fixture-league-context" class="w-full mb-4 px-4 py-3 bg-white border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-bold text-blue-900 shadow-sm appearance-none cursor-pointer transition-all"></select>`;
+        filtersContainer.insertAdjacentHTML('afterend', selectHtml);
+        document.getElementById('fixture-league-context').addEventListener('change', fetchFixtures);
     }
 }
 
@@ -165,6 +175,17 @@ window.setSport = (sport) => {
     updateSEO(currentSport + ' Predictions', 'Predict ' + currentSport + ' match results and compete globally on Scores on the Doors.');
 
     renderCompetitionFilters();
+    populateFixtureLeagueFilter();
+    
+    const fixDropdown = document.getElementById('fixture-league-context');
+    if (fixDropdown) {
+        const currentVal = fixDropdown.value;
+        fixDropdown.innerHTML = `<option value="all">Global Feed (All Matches)</option>` +
+            userLeaguesData.filter(l => l.sport === currentSport).map(l => `<option value="${l.id}">League Focus: ${l.name}</option>`).join('');
+        if(Array.from(fixDropdown.options).some(o => o.value === currentVal)) fixDropdown.value = currentVal;
+        else fixDropdown.value = 'all';
+    }
+
     fetchFixtures();
     if (!elements.sections.lead.classList.contains('hidden')) {
         populateLeaderboardFilters();
@@ -189,23 +210,51 @@ function renderCompetitionFilters() {
 
 function initCreateLeagueForm() {
     if (elements.leagues.createSport && elements.leagues.createComp) {
+        elements.leagues.createComp.style.display = 'none';
+
+        let formatUI = document.getElementById('league-format-container');
+        if (!formatUI) {
+            formatUI = document.createElement('div');
+            formatUI.id = 'league-format-container';
+            formatUI.className = 'w-full space-y-3 mt-3 mb-3';
+            elements.leagues.createComp.parentNode.insertAdjacentElement('afterend', formatUI);
+        }
+
         const updateLeagueComps = (sport) => {
             const comps = sportConfig[sport] || [];
-            let customUI = document.getElementById('custom-rules-ui');
-            if (!customUI) {
-                customUI = document.createElement('div');
-                customUI.id = 'custom-rules-ui';
-                customUI.className = 'w-full space-y-2 mt-3 p-3 bg-gray-50 rounded-xl border border-gray-200 max-h-48 overflow-y-auto mb-3';
-                elements.leagues.createComp.parentNode.insertAdjacentElement('afterend', customUI);
-                elements.leagues.createComp.style.display = 'none'; 
-            }
-            customUI.innerHTML = `<p class="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">Weekly Matches Count (Max 5 per comp. Leave 0 to ignore)</p>` +
-            comps.map(c => `
-                <div class="flex justify-between items-center bg-white p-2 rounded-lg border border-gray-100">
-                    <label class="text-xs font-bold text-gray-700 truncate flex-1">${c}</label>
-                    <input type="number" min="0" max="5" value="0" data-comp="${c}" class="w-12 text-center border rounded-md text-xs font-black py-1 outline-none focus:border-blue-500 comp-limit-input">
+
+            formatUI.innerHTML = `
+                <select id="new-league-format" class="w-full px-4 py-3 text-sm border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-bold text-blue-900 shadow-sm cursor-pointer transition-all">
+                    <option value="standard">Standard Format (All Matches)</option>
+                    <option value="limits">Custom Weekly Limits</option>
+                    <option value="teams">Favoured Teams (Specific Clubs)</option>
+                </select>
+
+                <div id="format-ui-limits" class="hidden w-full p-3 bg-gray-50 rounded-xl border border-gray-200 max-h-48 overflow-y-auto shadow-inner">
+                    <p class="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">Weekly Matches Count (Max 5 per comp. Leave 0 to ignore)</p>
+                    ${comps.map(c => `
+                        <div class="flex justify-between items-center bg-white p-2 rounded-lg border border-gray-100 mb-1 shadow-sm">
+                            <label class="text-xs font-bold text-gray-700 truncate flex-1">${c}</label>
+                            <input type="number" min="0" max="5" value="0" data-comp="${c}" class="w-12 text-center border border-gray-200 rounded-md text-xs font-black py-1 outline-none focus:border-blue-500 comp-limit-input">
+                        </div>
+                    `).join('')}
                 </div>
-            `).join('');
+
+                <div id="format-ui-teams" class="hidden w-full p-4 bg-gray-50 rounded-xl border border-gray-200 shadow-inner">
+                    <p class="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">Track Specific Teams</p>
+                    <input type="text" id="new-league-teams" placeholder="e.g. Arsenal, Liverpool, Chelsea" class="w-full px-4 py-3 text-sm bg-white border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 shadow-sm">
+                    <p class="text-[10px] text-gray-400 mt-2 font-bold leading-relaxed">Separate teams with commas. As an admin you can also manually drop ad hoc matches into the feed each week via the League Settings panel.</p>
+                </div>
+            `;
+
+            const formatDropdown = document.getElementById('new-league-format');
+            const limitsBox = document.getElementById('format-ui-limits');
+            const teamsBox = document.getElementById('format-ui-teams');
+
+            formatDropdown.onchange = (e) => {
+                limitsBox.classList.toggle('hidden', e.target.value !== 'limits');
+                teamsBox.classList.toggle('hidden', e.target.value !== 'teams');
+            };
         };
         elements.leagues.createSport.onchange = (e) => updateLeagueComps(e.target.value);
         updateLeagueComps(elements.leagues.createSport.value);
@@ -276,6 +325,7 @@ function switchTab(target) {
     
     if (target === 'fix') {
         updateSEO(currentCompetition + ' Fixtures', 'Lock in your ' + currentCompetition + ' predictions today.');
+        populateFixtureLeagueFilter();
         fetchFixtures();
     }
     if (target === 'lead') {
@@ -327,22 +377,31 @@ if (elements.leagues?.createBtn) {
         const sport = elements.leagues.createSport.value;
         if (!name) return alert("Please enter a league name.");
         
-        const ruleInputs = document.querySelectorAll('.comp-limit-input');
-        let customRules = {};
-        let totalGames = 0;
-        let hasCustom = false;
-        
-        ruleInputs.forEach(inp => {
-            const val = parseInt(inp.value) || 0;
-            if (val > 0) {
-                customRules[inp.dataset.comp] = val;
-                totalGames += val;
-                hasCustom = true;
-            }
-        });
-        
-        if (totalGames > 25) return alert("You cannot select more than 25 games overall per week.");
-        const finalRules = hasCustom ? customRules : null;
+        const format = document.getElementById('new-league-format').value;
+        let customRules = { format: format };
+
+        if (format === 'limits') {
+            const ruleInputs = document.querySelectorAll('.comp-limit-input');
+            let limits = {};
+            let totalGames = 0;
+            ruleInputs.forEach(inp => {
+                const val = parseInt(inp.value) || 0;
+                if (val > 0) {
+                    limits[inp.dataset.comp] = val;
+                    totalGames += val;
+                }
+            });
+            if (totalGames > 25) return alert("You cannot select more than 25 games overall per week.");
+            if (totalGames === 0) return alert("Please select at least 1 match limit, or use the Standard format instead.");
+            customRules.limits = limits;
+        } else if (format === 'teams') {
+            const teamsInput = document.getElementById('new-league-teams').value;
+            if (!teamsInput.trim()) return alert("Please enter at least one team to track.");
+            const teamsArr = teamsInput.split(',').map(t => t.trim()).filter(t => t.length > 0);
+            customRules.teams = teamsArr;
+            customRules.adhoc = []; 
+        }
+
         const inviteCode = generateInviteCode();
         
         const { data: league, error: leagueErr } = await sbClient.from('leagues').insert([{ 
@@ -350,8 +409,8 @@ if (elements.leagues?.createBtn) {
             invite_code: inviteCode, 
             created_by: currentUser.id, 
             sport, 
-            competition: hasCustom ? 'Custom Rules' : 'All',
-            custom_rules: finalRules
+            competition: 'All',
+            custom_rules: customRules
         }]).select().single();
         
         if (leagueErr) return alert("Error creating league. Details: " + leagueErr.message);
@@ -396,13 +455,60 @@ window.viewLeague = (leagueId) => {
     switchTab('lead');
 };
 
+window.toggleAdHoc = async (leagueId, fixtureId, isAdding) => {
+    const { data: league } = await sbClient.from('leagues').select('custom_rules').eq('id', leagueId).single();
+    if (league && league.custom_rules) {
+        let rules = league.custom_rules;
+        if (!rules.adhoc) rules.adhoc = [];
+
+        if (isAdding && !rules.adhoc.includes(fixtureId)) rules.adhoc.push(fixtureId);
+        else if (!isAdding) rules.adhoc = rules.adhoc.filter(id => id !== fixtureId);
+
+        await sbClient.from('leagues').update({ custom_rules: rules }).eq('id', leagueId);
+    }
+};
+
 window.openLeagueAdmin = async (leagueId, currentName, event) => {
     event.stopPropagation();
     if(elements.leagueAdmin?.modal) {
         elements.leagueAdmin.idInput.value = leagueId;
         elements.leagueAdmin.nameInput.value = currentName;
         elements.leagueAdmin.membersList.innerHTML = '<p class="text-xs text-gray-400">Loading members...</p>';
+        
+        let adhocContainer = document.getElementById('admin-adhoc-container');
+        if (!adhocContainer) {
+            adhocContainer = document.createElement('div');
+            adhocContainer.id = 'admin-adhoc-container';
+            elements.leagueAdmin.membersList.parentNode.insertAdjacentElement('afterend', adhocContainer);
+        }
+        adhocContainer.innerHTML = '';
+        
         elements.leagueAdmin.modal.classList.remove('hidden');
+
+        const { data: leagueData } = await sbClient.from('leagues').select('*').eq('id', leagueId).single();
+
+        if (leagueData && leagueData.custom_rules && leagueData.custom_rules.format === 'teams') {
+            const { data: upFixtures } = await sbClient.from('fixtures').select('fixture_id, home_team, away_team, match_group').eq('sport', leagueData.sport).eq('status', 'upcoming').order('kickoff_time', { ascending: true }).limit(30);
+
+            const currentAdhoc = leagueData.custom_rules.adhoc || [];
+
+            const fixtureList = (upFixtures || []).map(f => {
+                const isChecked = currentAdhoc.includes(f.fixture_id) ? 'checked' : '';
+                return `<div class="flex items-center justify-between bg-white p-2 rounded border border-gray-100 mb-1 shadow-sm">
+                    <span class="text-[10px] font-bold text-gray-700 truncate flex-1">${f.home_team} v ${f.away_team}</span>
+                    <input type="checkbox" onchange="toggleAdHoc('${leagueData.id}', ${f.fixture_id}, this.checked)" ${isChecked} class="ml-2 w-4 h-4 text-blue-600 rounded cursor-pointer">
+                </div>`;
+            }).join('');
+
+            adhocContainer.innerHTML = `
+                <div class="pt-4 mt-4 border-t border-gray-100">
+                    <label class="block text-xs font-bold text-gray-500 mb-2 uppercase tracking-wider">Add Ad Hoc Matches</label>
+                    <div class="max-h-32 overflow-y-auto bg-gray-50 p-2 rounded-xl border border-gray-200 shadow-inner">
+                        ${fixtureList || '<p class="text-[10px] text-gray-400">No upcoming matches available.</p>'}
+                    </div>
+                </div>
+            `;
+        }
 
         const { data, error } = await sbClient.from('league_members').select('user_id, users(display_name, first_name, last_name)').eq('league_id', leagueId);
         
@@ -512,15 +618,30 @@ async function fetchMyLeagues() {
         return;
     }
 
-    const myLeagues = members.map(m => m.leagues);
+    userLeaguesData = members.map(m => m.leagues);
     
-    elements.leagues.container.innerHTML = myLeagues.length > 0 ? myLeagues.map(l => {
+    populateFixtureLeagueFilter();
+    const fixDropdown = document.getElementById('fixture-league-context');
+    if (fixDropdown) {
+        const currentVal = fixDropdown.value;
+        fixDropdown.innerHTML = `<option value="all">Global Feed (All Matches)</option>` +
+            userLeaguesData.filter(l => l.sport === currentSport).map(l => `<option value="${l.id}">League Focus: ${l.name}</option>`).join('');
+        if(Array.from(fixDropdown.options).some(o => o.value === currentVal)) fixDropdown.value = currentVal;
+        else fixDropdown.value = 'all';
+    }
+    
+    elements.leagues.container.innerHTML = userLeaguesData.length > 0 ? userLeaguesData.map(l => {
         const isCreator = l.created_by === currentUser.id;
         const safeName = l.name.replace(/'/g, "\\'");
         const settingsBtn = isCreator ? `<button onclick="openLeagueAdmin('${l.id}', '${safeName}', event)" class="text-gray-400 hover:text-blue-900 p-2 ml-1 active:scale-95 transition-transform"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg></button>` : '';
 
         const shareUrl = `${window.location.origin}${window.location.pathname}?invite=${l.invite_code}`;
-        const subtext = l.custom_rules ? 'Custom Rules Applied' : (l.competition || 'All');
+        
+        let subtext = 'Standard Format';
+        if (l.custom_rules) {
+            if (l.custom_rules.format === 'limits') subtext = 'Custom Weekly Limits';
+            if (l.custom_rules.format === 'teams') subtext = 'Favoured Teams Format';
+        }
 
         return `
         <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex flex-col gap-2 hover:border-blue-300 hover:shadow-md transition-all group">
@@ -544,7 +665,7 @@ async function fetchMyLeagues() {
     if (elements.leagues.filter) {
         const currentVal = elements.leagues.filter.value;
         elements.leagues.filter.innerHTML = `<option value="global">Global Leaderboard</option>` + 
-            myLeagues.map(l => `<option value="${l.id}">${l.name}</option>`).join('');
+            userLeaguesData.map(l => `<option value="${l.id}">${l.name}</option>`).join('');
         
         if(Array.from(elements.leagues.filter.options).some(o => o.value === currentVal)) {
             elements.leagues.filter.value = currentVal;
@@ -570,6 +691,9 @@ async function fetchLeaderboard() {
         const { data: leagueData } = await sbClient.from('leagues').select('custom_rules, league_members(user_id)').eq('id', leagueFilter).single();
         if (leagueData) {
             customRules = leagueData.custom_rules;
+            if (customRules && !customRules.format) {
+                customRules = { format: 'limits', limits: customRules };
+            }
             validUids = leagueData.league_members.map(m => m.user_id);
             if (!validUids || validUids.length === 0) {
                 elements.leaderboard.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-gray-400 text-xs">No active users in this league.</td></tr>';
@@ -578,7 +702,7 @@ async function fetchLeaderboard() {
         }
     }
     
-    let predQuery = sbClient.from('predictions').select(`uid, home_predicted, away_predicted, fixtures!inner(sport, competition, status, home_score_actual, away_score_actual, match_group)`).eq('fixtures.status', 'finished').eq('fixtures.sport', currentSport);
+    let predQuery = sbClient.from('predictions').select(`uid, home_predicted, away_predicted, fixtures!inner(fixture_id, sport, competition, status, home_team, away_team, home_score_actual, away_score_actual, match_group)`).eq('fixtures.status', 'finished').eq('fixtures.sport', currentSport);
 
     if (!customRules && compFilter !== 'All') {
         predQuery = predQuery.eq('fixtures.competition', compFilter);
@@ -594,8 +718,6 @@ async function fetchLeaderboard() {
             if (validUids && !validUids.includes(p.uid)) return;
 
             const f = p.fixtures;
-            if (customRules && !customRules[f.competition]) return;
-
             const exact = p.home_predicted === f.home_score_actual && p.away_predicted === f.away_score_actual;
             const res = (p.home_predicted > p.away_predicted && f.home_score_actual > f.away_score_actual) ||
                         (p.home_predicted < p.away_predicted && f.home_score_actual < f.away_score_actual) ||
@@ -605,13 +727,30 @@ async function fetchLeaderboard() {
             if (exact) pts = 3;
             else if (res) pts = 1;
 
-            if (customRules) {
+            if (customRules && customRules.format === 'limits') {
+                if (!customRules.limits[f.competition]) return; 
                 if (!userWeeklyStats[p.uid]) userWeeklyStats[p.uid] = {};
                 if (!userWeeklyStats[p.uid][f.competition]) userWeeklyStats[p.uid][f.competition] = {};
                 const week = f.match_group || 'Unknown';
                 if (!userWeeklyStats[p.uid][f.competition][week]) userWeeklyStats[p.uid][f.competition][week] = [];
                 
                 userWeeklyStats[p.uid][f.competition][week].push({ pts, exact: exact ? 1 : 0, correct: res ? 1 : 0 });
+            } else if (customRules && customRules.format === 'teams') {
+                const teams = customRules.teams || [];
+                const adhoc = customRules.adhoc || [];
+                
+                const isFavoured = teams.some(t => 
+                    f.home_team.toLowerCase().includes(t.toLowerCase()) || 
+                    f.away_team.toLowerCase().includes(t.toLowerCase())
+                );
+                const isAdhoc = adhoc.includes(f.fixture_id);
+
+                if (isFavoured || isAdhoc) {
+                    if (!userStats[p.uid]) userStats[p.uid] = { exact: 0, correct: 0, pts: 0 };
+                    if (exact) userStats[p.uid].exact += 1;
+                    if (res) userStats[p.uid].correct += 1;
+                    userStats[p.uid].pts += pts;
+                }
             } else {
                 if (!userStats[p.uid]) userStats[p.uid] = { exact: 0, correct: 0, pts: 0 };
                 if (exact) userStats[p.uid].exact += 1;
@@ -620,11 +759,11 @@ async function fetchLeaderboard() {
             }
         });
 
-        if (customRules) {
+        if (customRules && customRules.format === 'limits') {
             for (const uid in userWeeklyStats) {
                 userStats[uid] = { exact: 0, correct: 0, pts: 0 };
                 for (const comp in userWeeklyStats[uid]) {
-                    const limit = customRules[comp];
+                    const limit = customRules.limits[comp];
                     for (const week in userWeeklyStats[uid][comp]) {
                         const games = userWeeklyStats[uid][comp][week].sort((a, b) => b.pts - a.pts).slice(0, limit);
                         games.forEach(g => {
@@ -698,6 +837,25 @@ async function fetchFixtures() {
         }
 
         let displayFixtures = fixtures || [];
+        
+        const fixDropdown = document.getElementById('fixture-league-context');
+        const selectedLgId = fixDropdown ? fixDropdown.value : 'all';
+
+        if (selectedLgId !== 'all') {
+            const activeLeague = userLeaguesData.find(l => l.id === selectedLgId);
+            if (activeLeague && activeLeague.custom_rules && activeLeague.custom_rules.format === 'teams') {
+                const teams = activeLeague.custom_rules.teams || [];
+                const adhoc = activeLeague.custom_rules.adhoc || [];
+                displayFixtures = displayFixtures.filter(f => {
+                    const isFavoured = teams.some(t => 
+                        f.home_team.toLowerCase().includes(t.toLowerCase()) || 
+                        f.away_team.toLowerCase().includes(t.toLowerCase())
+                    );
+                    const isAdhoc = adhoc.includes(f.fixture_id);
+                    return isFavoured || isAdhoc;
+                });
+            }
+        }
 
         displayFixtures.sort((a, b) => {
             const dateA = new Date(a.kickoff_time);
@@ -717,7 +875,7 @@ async function fetchFixtures() {
         }, {});
 
         if (displayFixtures.length === 0) {
-            elements.fixtures.innerHTML = `<p class="text-center py-10 text-gray-400">No matches found for ${currentCompetition}.</p>`;
+            elements.fixtures.innerHTML = `<p class="text-center py-10 text-gray-400">No matches found for your current selection.</p>`;
         } else {
             elements.fixtures.innerHTML = Object.entries(groupedFixtures).map(([groupName, matches]) => {
                 const matchCards = matches.map(f => {
