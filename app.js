@@ -503,7 +503,7 @@ async function fetchFixtures() {
     if (currentSport === 'Rugby') {
         elements.fixtures.innerHTML = `
             <div class="bg-blue-50 border-l-4 border-blue-500 p-6 rounded-r-xl shadow-sm my-8 text-center">
-                <svg class="w-12 h-12 text-blue-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                <svg class="w-12 h-12 text-blue-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012-2v2M7 7h10"></path></svg>
                 <h3 class="text-lg font-black text-blue-900 mb-1 tracking-tight">Rugby Coming Soon</h3>
                 <p class="text-sm text-blue-700">We are currently building out the infrastructure to support full Rugby integration. Check back later!</p>
             </div>
@@ -567,14 +567,19 @@ async function fetchFixtures() {
                     const kickoffDate = new Date(safeKickoff);
                     
                     const now = realTime;
+                    const timeDiff = now.getTime() - kickoffDate.getTime();
+                    const fourHours = 4 * 60 * 60 * 1000;
+                    
                     const isFinished = f.status === 'finished';
-                    const isOngoing = !isFinished && kickoffDate <= now;
-                    const isLocked = isFinished || isOngoing;
+                    const isOngoing = !isFinished && timeDiff >= 0 && timeDiff < fourHours;
+                    const isPostponed = !isFinished && timeDiff >= fourHours;
+                    const isLocked = isFinished || isOngoing || isPostponed;
                     const hasPredicted = p !== undefined && p !== null;
                     const disableInputs = isLocked || hasPredicted;
                     
                     let statusBadge = '<span class="text-blue-500">Upcoming</span>';
                     if (isFinished) statusBadge = '<span class="text-red-500">FT Result</span>';
+                    else if (isPostponed) statusBadge = '<span class="text-orange-500">Postponed</span>';
                     else if (isOngoing) statusBadge = '<span class="text-green-500 animate-pulse font-black">LIVE</span>';
 
                     let editIcon = '';
@@ -584,7 +589,10 @@ async function fetchFixtures() {
                         </button>`;
                     }
 
-                    const timeString = kickoffDate.toLocaleDateString('en-GB', {weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute:'2-digit', timeZoneName: 'short'});
+                    let timeString = kickoffDate.toLocaleDateString('en-GB', {weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute:'2-digit', timeZoneName: 'short'});
+                    if (f.kickoff_time.includes('T00:00:00') || f.kickoff_time.includes(' 00:00:00')) {
+                        timeString = kickoffDate.toLocaleDateString('en-GB', {weekday: 'short', day: '2-digit', month: 'short'}) + ' (TBD)';
+                    }
 
                     return `
                     <div class="relative bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mb-4 transition-all" data-id="${f.fixture_id}">
