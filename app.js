@@ -597,12 +597,18 @@ async function fetchFixtures() {
                             </div>
                         </div>
                         <div class="flex items-center justify-between gap-4">
-                            <div class="flex-1 text-right font-black text-xs sm:text-sm text-blue-900 leading-tight">${f.home_team}</div>
+                            <div class="flex-1 text-right flex flex-col justify-center">
+                                <span class="font-black text-xs sm:text-sm text-blue-900 leading-tight">${f.home_team}</span>
+                                <a href="https://www.google.com/search?tbm=shop&q=${encodeURIComponent(f.home_team + ' football shirt')}" target="_blank" class="text-[8px] text-gray-400 hover:text-blue-500 font-bold uppercase tracking-widest mt-1 transition-colors">Buy Kit</a>
+                            </div>
                             <div class="flex gap-2">
                                 <input type="number" min="0" id="h-${f.fixture_id}" value="${p ? p.home_predicted : ''}" ${disableInputs ? 'disabled' : ''} class="w-12 h-12 text-center border-2 border-gray-100 rounded-xl font-black text-lg focus:border-blue-500 outline-none transition-colors ${isLocked ? 'bg-gray-50 opacity-50' : (hasPredicted ? 'bg-blue-50 opacity-90 text-blue-900' : 'bg-gray-50')} input-score-${f.fixture_id}" placeholder="-">
                                 <input type="number" min="0" id="a-${f.fixture_id}" value="${p ? p.away_predicted : ''}" ${disableInputs ? 'disabled' : ''} class="w-12 h-12 text-center border-2 border-gray-100 rounded-xl font-black text-lg focus:border-blue-500 outline-none transition-colors ${isLocked ? 'bg-gray-50 opacity-50' : (hasPredicted ? 'bg-blue-50 opacity-90 text-blue-900' : 'bg-gray-50')} input-score-${f.fixture_id}" placeholder="-">
                             </div>
-                            <div class="flex-1 text-left font-black text-xs sm:text-sm text-blue-900 leading-tight">${f.away_team}</div>
+                            <div class="flex-1 text-left flex flex-col justify-center">
+                                <span class="font-black text-xs sm:text-sm text-blue-900 leading-tight">${f.away_team}</span>
+                                <a href="https://www.google.com/search?tbm=shop&q=${encodeURIComponent(f.away_team + ' football shirt')}" target="_blank" class="text-[8px] text-gray-400 hover:text-blue-500 font-bold uppercase tracking-widest mt-1 transition-colors">Buy Kit</a>
+                            </div>
                         </div>
                         ${isFinished ? `<div class="mt-4 pt-4 border-t border-gray-50 text-center text-[10px] font-bold text-gray-400">Actual Result: <span class="text-blue-900">${f.home_score_actual} - ${f.away_score_actual}</span></div>` : ''}
                     </div>`;
@@ -1040,7 +1046,7 @@ if (elements.cookies?.banner && elements.cookies?.acceptBtn) {
     if (!localStorage.getItem('sotd_cookie_consent')) {
         setTimeout(() => {
             elements.cookies.banner.classList.remove('hidden');
-        }, 1000); // 1 second delay so it doesn't aggressively flash on load
+        }, 1000); 
     }
 
     elements.cookies.acceptBtn.onclick = () => {
