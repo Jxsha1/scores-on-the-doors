@@ -900,15 +900,24 @@ if (elements.syncBtn) {
                             let hLogo = null;
                             let aLogo = null;
 
+                            let hAbbr = match.home_team?.abbreviation ? match.home_team.abbreviation.toLowerCase() : '';
+                            let aAbbr = match.visitor_team?.abbreviation ? match.visitor_team.abbreviation.toLowerCase() : '';
+
                             if (sportSelect === 'Am. Football' && match.week) {
                                 groupString = `Week ${match.week}`;
-                                hLogo = match.home_team?.abbreviation ? `https://a.espncdn.com/i/teamlogos/nfl/500/${match.home_team.abbreviation.toLowerCase()}.png` : null;
-                                aLogo = match.visitor_team?.abbreviation ? `https://a.espncdn.com/i/teamlogos/nfl/500/${match.visitor_team.abbreviation.toLowerCase()}.png` : null;
+                                const nflMap = { 'was': 'wsh', 'lvr': 'lv' };
+                                if (nflMap[hAbbr]) hAbbr = nflMap[hAbbr];
+                                if (nflMap[aAbbr]) aAbbr = nflMap[aAbbr];
+                                hLogo = hAbbr ? `https://a.espncdn.com/i/teamlogos/nfl/500/${hAbbr}.png` : null;
+                                aLogo = aAbbr ? `https://a.espncdn.com/i/teamlogos/nfl/500/${aAbbr}.png` : null;
                             } else if (sportSelect === 'Basketball') {
                                 const d = new Date(kickoff);
                                 groupString = d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
-                                hLogo = match.home_team?.abbreviation ? `https://a.espncdn.com/i/teamlogos/nba/500/${match.home_team.abbreviation.toLowerCase()}.png` : null;
-                                aLogo = match.visitor_team?.abbreviation ? `https://a.espncdn.com/i/teamlogos/nba/500/${match.visitor_team.abbreviation.toLowerCase()}.png` : null;
+                                const nbaMap = { 'nop': 'no', 'uta': 'utah', 'was': 'wsh', 'sas': 'sa', 'nyk': 'ny', 'gsw': 'gs' };
+                                if (nbaMap[hAbbr]) hAbbr = nbaMap[hAbbr];
+                                if (nbaMap[aAbbr]) aAbbr = nbaMap[aAbbr];
+                                hLogo = hAbbr ? `https://a.espncdn.com/i/teamlogos/nba/500/${hAbbr}.png` : null;
+                                aLogo = aAbbr ? `https://a.espncdn.com/i/teamlogos/nba/500/${aAbbr}.png` : null;
                             }
                             
                             fixturesToInsert.push({
