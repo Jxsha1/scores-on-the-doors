@@ -503,7 +503,7 @@ async function fetchFixtures() {
     if (currentSport === 'Rugby') {
         elements.fixtures.innerHTML = `
             <div class="bg-blue-50 border-l-4 border-blue-500 p-6 rounded-r-xl shadow-sm my-8 text-center">
-                <svg class="w-12 h-12 text-blue-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                <svg class="w-12 h-12 text-blue-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012-2v2M7 7h10"></path></svg>
                 <h3 class="text-lg font-black text-blue-900 mb-1 tracking-tight">Rugby Coming Soon</h3>
                 <p class="text-sm text-blue-700">We are currently building out the infrastructure to support full Rugby integration. Check back later!</p>
             </div>
@@ -607,8 +607,10 @@ async function fetchFixtures() {
                         btnText = 'Buy Jersey';
                     }
                     
-                    const homeLogoHtml = f.home_logo ? `<img src="${f.home_logo}" alt="${f.home_team} logo" class="w-6 h-6 sm:w-8 sm:h-8 object-contain drop-shadow-sm flex-shrink-0" onerror="this.style.display='none'">` : '';
-                    const awayLogoHtml = f.away_logo ? `<img src="${f.away_logo}" alt="${f.away_team} logo" class="w-6 h-6 sm:w-8 sm:h-8 object-contain drop-shadow-sm flex-shrink-0" onerror="this.style.display='none'">` : '';
+                    const fallbackLogo = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23cbd5e1'%3E%3Cpath d='M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z'/%3E%3C/svg%3E";
+                    
+                    const homeLogoHtml = `<img src="${f.home_logo || fallbackLogo}" alt="${f.home_team} logo" class="w-6 h-6 sm:w-8 sm:h-8 object-contain drop-shadow-sm flex-shrink-0" onerror="this.src='${fallbackLogo}'">`;
+                    const awayLogoHtml = `<img src="${f.away_logo || fallbackLogo}" alt="${f.away_team} logo" class="w-6 h-6 sm:w-8 sm:h-8 object-contain drop-shadow-sm flex-shrink-0" onerror="this.src='${fallbackLogo}'">`;
 
                     return `
                     <div class="relative bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mb-4 transition-all" data-id="${f.fixture_id}">
