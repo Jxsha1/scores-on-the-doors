@@ -101,7 +101,9 @@ async function syncSport(sportSelect, compSelect, config) {
                         status: match.status === 'FINISHED' ? 'finished' : 'upcoming',
                         home_score_actual: match.status === 'FINISHED' ? match.score?.fullTime?.home : null,
                         away_score_actual: match.status === 'FINISHED' ? match.score?.fullTime?.away : null,
-                        match_group: groupStr
+                        match_group: groupStr,
+                        home_logo: match.homeTeam?.crest || null,
+                        away_logo: match.awayTeam?.crest || null
                     };
                 });
 
@@ -162,11 +164,18 @@ async function syncSport(sportSelect, compSelect, config) {
                         const kickoff = match.datetime || match.date; 
 
                         let groupString = null;
+                        let hLogo = null;
+                        let aLogo = null;
+
                         if (sportSelect === 'Am. Football' && match.week) {
                             groupString = `Week ${match.week}`;
+                            hLogo = match.home_team?.abbreviation ? `https://a.espncdn.com/i/teamlogos/nfl/500/${match.home_team.abbreviation.toLowerCase()}.png` : null;
+                            aLogo = match.visitor_team?.abbreviation ? `https://a.espncdn.com/i/teamlogos/nfl/500/${match.visitor_team.abbreviation.toLowerCase()}.png` : null;
                         } else if (sportSelect === 'Basketball') {
                             const d = new Date(kickoff);
                             groupString = d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+                            hLogo = match.home_team?.abbreviation ? `https://a.espncdn.com/i/teamlogos/nba/500/${match.home_team.abbreviation.toLowerCase()}.png` : null;
+                            aLogo = match.visitor_team?.abbreviation ? `https://a.espncdn.com/i/teamlogos/nba/500/${match.visitor_team.abbreviation.toLowerCase()}.png` : null;
                         }
                         
                         fixturesToInsert.push({
@@ -180,7 +189,9 @@ async function syncSport(sportSelect, compSelect, config) {
                             status: isFinished ? 'finished' : 'upcoming',
                             home_score_actual: isFinished ? parseInt(match.home_team_score) : null,
                             away_score_actual: isFinished ? parseInt(match.visitor_team_score) : null,
-                            match_group: groupString
+                            match_group: groupString,
+                            home_logo: hLogo,
+                            away_logo: aLogo
                         });
 
                         if (isFinished) {
@@ -193,7 +204,6 @@ async function syncSport(sportSelect, compSelect, config) {
                     });
                 }
 
-                // Respect the 5 requests per minute limit
                 await sleep(12500); 
                 nextCursor = data.meta?.next_cursor || null;
 
