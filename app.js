@@ -126,6 +126,14 @@ let currentSport = 'Football';
 let currentCompetition = sportConfig['Football'][0];
 let deferredPrompt; 
 
+function updateSEO(pageName, description) {
+    document.title = pageName + ' | Scores on the Doors';
+    const metaDesc = document.querySelector('meta[name="description"]');
+    if (metaDesc) {
+        metaDesc.setAttribute('content', description);
+    }
+}
+
 window.setSport = (sport) => {
     currentSport = sport;
     currentCompetition = sportConfig[sport][0]; 
@@ -150,12 +158,15 @@ window.setSport = (sport) => {
         }
     });
 
+    updateSEO(currentSport + ' Predictions', 'Predict ' + currentSport + ' match results and compete globally on Scores on the Doors.');
+
     renderCompetitionFilters();
     fetchFixtures();
 };
 
 window.setCompetition = (comp) => {
     currentCompetition = comp;
+    updateSEO(comp + ' Fixtures', 'Lock in your ' + comp + ' predictions and see how you rank on the leaderboard.');
     renderCompetitionFilters();
     fetchFixtures();
 };
@@ -223,10 +234,22 @@ function switchTab(target) {
     elements.sections[target].classList.remove('hidden');
     elements.tabs[target].classList.add('border-blue-900', 'text-blue-900');
     
-    if (target === 'fix') fetchFixtures();
-    if (target === 'lead') fetchLeaderboard();
-    if (target === 'leg') fetchMyLeagues();
-    if (target === 'adm') fetchAdminFixtures();
+    if (target === 'fix') {
+        updateSEO(currentCompetition + ' Fixtures', 'Lock in your ' + currentCompetition + ' predictions today.');
+        fetchFixtures();
+    }
+    if (target === 'lead') {
+        updateSEO('Global Leaderboard', 'Check your ranking on the Scores on the Doors global leaderboard.');
+        fetchLeaderboard();
+    }
+    if (target === 'leg') {
+        updateSEO('Private Leagues', 'Create or join private predictor leagues with your friends and family.');
+        fetchMyLeagues();
+    }
+    if (target === 'adm') {
+        updateSEO('Admin Dashboard', 'Manage API syncs and platform data.');
+        fetchAdminFixtures();
+    }
 }
 
 if (elements.tabs?.fix) elements.tabs.fix.onclick = () => switchTab('fix');
