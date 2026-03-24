@@ -74,7 +74,7 @@ const elements = {
 };
 
 const sportConfig = {
-    'Football': ['Premier League', 'World Cup', 'Champions League'],
+    'Football': ['Premier League', 'Champions League', 'World Cup', 'La Liga', 'Bundesliga', 'Ligue 1', 'Serie A'],
     'Basketball': ['NBA'],
     'Am. Football': ['NFL'],
     'Rugby': ['Six Nations Championship', 'English Rugby League Super League', 'English Prem Rugby']
@@ -84,7 +84,11 @@ const competitionConfig = {
     'Football': {
         'Premier League': { provider: 'football-data', id: 'PL' },
         'World Cup': { provider: 'football-data', id: 'WC' },
-        'Champions League': { provider: 'football-data', id: 'CL' }
+        'Champions League': { provider: 'football-data', id: 'CL' },
+        'La Liga': { provider: 'football-data', id: 'PD' },
+        'Bundesliga': { provider: 'football-data', id: 'BL1' },
+        'Ligue 1': { provider: 'football-data', id: 'FL1' },
+        'Serie A': { provider: 'football-data', id: 'SA' }
     },
     'Basketball': {
         'NBA': { provider: 'balldontlie', endpoint: 'https://api.balldontlie.io/v1/games' }
@@ -162,6 +166,10 @@ window.setSport = (sport) => {
 
     renderCompetitionFilters();
     fetchFixtures();
+    if (!elements.sections.lead.classList.contains('hidden')) {
+        populateLeaderboardFilters();
+        fetchLeaderboard();
+    }
 };
 
 window.setCompetition = (comp) => {
@@ -183,7 +191,21 @@ function initCreateLeagueForm() {
     if (elements.leagues.createSport && elements.leagues.createComp) {
         const updateLeagueComps = (sport) => {
             const comps = sportConfig[sport] || [];
-            elements.leagues.createComp.innerHTML = comps.map(c => `<option value="${c}">${c}</option>`).join('');
+            let customUI = document.getElementById('custom-rules-ui');
+            if (!customUI) {
+                customUI = document.createElement('div');
+                customUI.id = 'custom-rules-ui';
+                customUI.className = 'w-full space-y-2 mt-3 p-3 bg-gray-50 rounded-xl border border-gray-200 max-h-48 overflow-y-auto mb-3';
+                elements.leagues.createComp.parentNode.insertAdjacentElement('afterend', customUI);
+                elements.leagues.createComp.style.display = 'none'; 
+            }
+            customUI.innerHTML = `<p class="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">Weekly Matches Count (Max 5 per comp. Leave 0 to ignore)</p>` +
+            comps.map(c => `
+                <div class="flex justify-between items-center bg-white p-2 rounded-lg border border-gray-100">
+                    <label class="text-xs font-bold text-gray-700 truncate flex-1">${c}</label>
+                    <input type="number" min="0" max="5" value="0" data-comp="${c}" class="w-12 text-center border rounded-md text-xs font-black py-1 outline-none focus:border-blue-500 comp-limit-input">
+                </div>
+            `).join('');
         };
         elements.leagues.createSport.onchange = (e) => updateLeagueComps(e.target.value);
         updateLeagueComps(elements.leagues.createSport.value);
@@ -200,6 +222,24 @@ function initAdminSyncForm() {
         };
         adminSport.onchange = (e) => updateAdminComps(e.target.value);
         updateAdminComps(adminSport.value);
+    }
+}
+
+function populateLeaderboardFilters() {
+    if (!document.getElementById('lb-comp-filter') && elements.leagues?.filter) {
+        const filterHTML = `<select id="lb-comp-filter" class="w-full mb-2 px-4 py-3 bg-white border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-bold text-blue-900 shadow-sm appearance-none cursor-pointer transition-all"></select>`;
+        elements.leagues.filter.insertAdjacentHTML('afterend', filterHTML);
+        document.getElementById('lb-comp-filter').addEventListener('change', fetchLeaderboard);
+    }
+    const lbCompFilter = document.getElementById('lb-comp-filter');
+    if (lbCompFilter) {
+        const comps = sportConfig[currentSport] || [];
+        lbCompFilter.innerHTML = `<option value="All">All ${currentSport} Competitions</option>` + comps.map(c => `<option value="${c}">${c}</option>`).join('');
+        if (comps.includes(currentCompetition)) {
+            lbCompFilter.value = currentCompetition;
+        } else {
+            lbCompFilter.value = 'All';
+        }
     }
 }
 
@@ -239,7 +279,8 @@ function switchTab(target) {
         fetchFixtures();
     }
     if (target === 'lead') {
-        updateSEO('Global Leaderboard', 'Check your ranking on the Scores on the Doors global leaderboard.');
+        updateSEO('Sport Leaderboard', 'Check your ranking on the Scores on the Doors ' + currentSport + ' leaderboard.');
+        populateLeaderboardFilters();
         fetchLeaderboard();
     }
     if (target === 'leg') {
@@ -284,12 +325,34 @@ if (elements.leagues?.createBtn) {
         if (!currentUser) return alert("Please sign in to create a league.");
         const name = elements.leagues.createName.value.trim();
         const sport = elements.leagues.createSport.value;
-        const competition = elements.leagues.createComp.value;
         if (!name) return alert("Please enter a league name.");
         
+        const ruleInputs = document.querySelectorAll('.comp-limit-input');
+        let customRules = {};
+        let totalGames = 0;
+        let hasCustom = false;
+        
+        ruleInputs.forEach(inp => {
+            const val = parseInt(inp.value) || 0;
+            if (val > 0) {
+                customRules[inp.dataset.comp] = val;
+                totalGames += val;
+                hasCustom = true;
+            }
+        });
+        
+        if (totalGames > 25) return alert("You cannot select more than 25 games overall per week.");
+        const finalRules = hasCustom ? customRules : null;
         const inviteCode = generateInviteCode();
         
-        const { data: league, error: leagueErr } = await sbClient.from('leagues').insert([{ name, invite_code: inviteCode, created_by: currentUser.id, sport, competition }]).select().single();
+        const { data: league, error: leagueErr } = await sbClient.from('leagues').insert([{ 
+            name, 
+            invite_code: inviteCode, 
+            created_by: currentUser.id, 
+            sport, 
+            competition: hasCustom ? 'Custom Rules' : 'All',
+            custom_rules: finalRules
+        }]).select().single();
         
         if (leagueErr) return alert("Error creating league. Details: " + leagueErr.message);
         
@@ -456,16 +519,20 @@ async function fetchMyLeagues() {
         const safeName = l.name.replace(/'/g, "\\'");
         const settingsBtn = isCreator ? `<button onclick="openLeagueAdmin('${l.id}', '${safeName}', event)" class="text-gray-400 hover:text-blue-900 p-2 ml-1 active:scale-95 transition-transform"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg></button>` : '';
 
+        const shareUrl = `${window.location.origin}${window.location.pathname}?invite=${l.invite_code}`;
+        const subtext = l.custom_rules ? 'Custom Rules Applied' : (l.competition || 'All');
+
         return `
         <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex flex-col gap-2 hover:border-blue-300 hover:shadow-md transition-all group">
             <div class="flex justify-between items-start w-full">
                 <div onclick="viewLeague('${l.id}')" class="flex flex-col cursor-pointer flex-1">
                     <span class="font-bold text-sm text-blue-900 group-hover:text-blue-600 transition-colors">${l.name}</span>
-                    <span class="text-[9px] text-gray-500 font-bold uppercase tracking-wider mt-1">${l.sport} • ${l.competition || 'All'}</span>
+                    <span class="text-[9px] text-gray-500 font-bold uppercase tracking-wider mt-1">${l.sport} • ${subtext}</span>
                 </div>
                 <div class="flex flex-col items-end gap-2">
                     <div class="flex items-center gap-1">
-                        <span class="bg-blue-50 text-blue-700 px-3 py-1 rounded-lg text-xs font-black tracking-widest border border-blue-100">${l.invite_code}</span>
+                        <span class="bg-blue-50 text-blue-700 px-3 py-1 rounded-lg text-[10px] font-black tracking-widest border border-blue-100">${l.invite_code}</span>
+                        <button onclick="navigator.clipboard.writeText('${shareUrl}'); alert('Invite link copied to clipboard!')" class="bg-green-50 text-green-700 px-3 py-1 rounded-lg text-[10px] font-black tracking-widest border border-green-100 hover:bg-green-100 transition shadow-sm active:scale-95">SHARE</button>
                         ${settingsBtn}
                     </div>
                 </div>
@@ -491,33 +558,107 @@ if(elements.leagues?.filter) {
 
 async function fetchLeaderboard() {
     if(!elements.leaderboard) return;
+    elements.leaderboard.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-gray-400 text-xs">Crunching the numbers...</td></tr>';
     
-    let query = sbClient.from('users').select('*').order('total_points', { ascending: false }).order('exact_scores', { ascending: false });
+    const leagueFilter = elements.leagues?.filter?.value;
+    const compFilter = document.getElementById('lb-comp-filter')?.value || 'All';
     
-    const filterVal = elements.leagues?.filter?.value;
-    if (filterVal && filterVal !== 'global') {
-        const { data: leagueMembers } = await sbClient.from('league_members').select('user_id').eq('league_id', filterVal);
-        if (leagueMembers) {
-            const userIds = leagueMembers.map(m => m.user_id);
-            if(userIds.length > 0) {
-                query = query.in('uid', userIds);
-            } else {
+    let validUids = null;
+    let customRules = null;
+
+    if (leagueFilter && leagueFilter !== 'global') {
+        const { data: leagueData } = await sbClient.from('leagues').select('custom_rules, league_members(user_id)').eq('id', leagueFilter).single();
+        if (leagueData) {
+            customRules = leagueData.custom_rules;
+            validUids = leagueData.league_members.map(m => m.user_id);
+            if (!validUids || validUids.length === 0) {
                 elements.leaderboard.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-gray-400 text-xs">No active users in this league.</td></tr>';
                 return;
             }
         }
     }
     
-    const { data } = await query;
-    elements.leaderboard.innerHTML = (data || []).map((u, i) => `
+    let predQuery = sbClient.from('predictions').select(`uid, home_predicted, away_predicted, fixtures!inner(sport, competition, status, home_score_actual, away_score_actual, match_group)`).eq('fixtures.status', 'finished').eq('fixtures.sport', currentSport);
+
+    if (!customRules && compFilter !== 'All') {
+        predQuery = predQuery.eq('fixtures.competition', compFilter);
+    }
+
+    const { data: preds } = await predQuery;
+
+    const userStats = {};
+    const userWeeklyStats = {}; 
+
+    if (preds) {
+        preds.forEach(p => {
+            if (validUids && !validUids.includes(p.uid)) return;
+
+            const f = p.fixtures;
+            if (customRules && !customRules[f.competition]) return;
+
+            const exact = p.home_predicted === f.home_score_actual && p.away_predicted === f.away_score_actual;
+            const res = (p.home_predicted > p.away_predicted && f.home_score_actual > f.away_score_actual) ||
+                        (p.home_predicted < p.away_predicted && f.home_score_actual < f.away_score_actual) ||
+                        (p.home_predicted === p.away_predicted && f.home_score_actual === f.away_score_actual);
+
+            let pts = 0;
+            if (exact) pts = 3;
+            else if (res) pts = 1;
+
+            if (customRules) {
+                if (!userWeeklyStats[p.uid]) userWeeklyStats[p.uid] = {};
+                if (!userWeeklyStats[p.uid][f.competition]) userWeeklyStats[p.uid][f.competition] = {};
+                const week = f.match_group || 'Unknown';
+                if (!userWeeklyStats[p.uid][f.competition][week]) userWeeklyStats[p.uid][f.competition][week] = [];
+                
+                userWeeklyStats[p.uid][f.competition][week].push({ pts, exact: exact ? 1 : 0, correct: res ? 1 : 0 });
+            } else {
+                if (!userStats[p.uid]) userStats[p.uid] = { exact: 0, correct: 0, pts: 0 };
+                if (exact) userStats[p.uid].exact += 1;
+                if (res) userStats[p.uid].correct += 1;
+                userStats[p.uid].pts += pts;
+            }
+        });
+
+        if (customRules) {
+            for (const uid in userWeeklyStats) {
+                userStats[uid] = { exact: 0, correct: 0, pts: 0 };
+                for (const comp in userWeeklyStats[uid]) {
+                    const limit = customRules[comp];
+                    for (const week in userWeeklyStats[uid][comp]) {
+                        const games = userWeeklyStats[uid][comp][week].sort((a, b) => b.pts - a.pts).slice(0, limit);
+                        games.forEach(g => {
+                            userStats[uid].pts += g.pts;
+                            userStats[uid].exact += g.exact;
+                            userStats[uid].correct += g.correct;
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    let userQuery = sbClient.from('users').select('uid, first_name, last_name, display_name');
+    if (validUids) userQuery = userQuery.in('uid', validUids);
+
+    const { data: users } = await userQuery;
+
+    const finalBoard = (users || []).map(u => {
+        const stats = userStats[u.uid] || { exact: 0, correct: 0, pts: 0 };
+        return { ...u, ...stats };
+    });
+
+    finalBoard.sort((a, b) => b.pts - a.pts || b.exact - a.exact);
+
+    elements.leaderboard.innerHTML = finalBoard.map((u, i) => `
         <tr class="hover:bg-gray-50 transition-colors">
             <td class="px-6 py-5 text-gray-300 font-black text-sm italic">#${i+1}</td>
             <td class="px-6 py-5 font-bold text-blue-900">${u.first_name ? u.first_name + ' ' + (u.last_name || '') : u.display_name?.split('@')[0] || 'Unknown User'}</td>
-            <td class="px-6 py-5 text-center font-bold text-gray-500">${u.exact_scores || 0}</td>
-            <td class="px-6 py-5 text-center font-bold text-gray-500">${u.correct_results || 0}</td>
-            <td class="px-6 py-5 text-right font-black text-blue-600 text-lg">${u.total_points || 0}</td>
+            <td class="px-6 py-5 text-center font-bold text-gray-500">${u.exact}</td>
+            <td class="px-6 py-5 text-center font-bold text-gray-500">${u.correct}</td>
+            <td class="px-6 py-5 text-right font-black text-blue-600 text-lg">${u.pts}</td>
         </tr>
-    `).join('') || '';
+    `).join('') || '<tr><td colspan="5" class="text-center py-4 text-gray-400 text-xs">No points recorded yet.</td></tr>';
 }
 
 async function fetchFixtures() {
@@ -1085,6 +1226,20 @@ if (!isStandalone && elements.pwa?.banner) {
         };
     }
 }
+
+window.addEventListener('DOMContentLoaded', () => {
+    const params = new URLSearchParams(window.location.search);
+    const inviteCode = params.get('invite');
+    if (inviteCode) {
+        if (elements.leagues?.joinCode) elements.leagues.joinCode.value = inviteCode;
+        switchTab('leg');
+        if (!currentUser) {
+            elements.authModal?.classList.remove('hidden');
+            const authTitle = document.getElementById('auth-title');
+            if (authTitle) authTitle.textContent = "Sign In to Join League";
+        }
+    }
+});
 
 if (elements.loginBtn) elements.loginBtn.onclick = () => currentUser ? sbClient.auth.signOut() : elements.authModal?.classList.remove('hidden');
 if (document.getElementById('close-modal-btn')) document.getElementById('close-modal-btn').onclick = () => elements.authModal?.classList.add('hidden');
