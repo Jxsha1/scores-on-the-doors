@@ -173,11 +173,12 @@ window.setSport = (sport) => {
     });
 
     renderCompetitionFilters();
+    populateFixtureLeagueFilter();
     
     const fixDropdown = document.getElementById('fixture-league-context');
     if (fixDropdown) {
         const currentVal = fixDropdown.value;
-        fixDropdown.innerHTML = `<option value="all">All Matches</option>` +
+        fixDropdown.innerHTML = `<option value="all">My Active Matches</option>` +
             userLeaguesData.filter(l => l.sport === currentSport).map(l => `<option value="${l.id}">League Focus: ${l.name}</option>`).join('');
         if(Array.from(fixDropdown.options).some(o => o.value === currentVal)) fixDropdown.value = currentVal;
         else fixDropdown.value = 'all';
@@ -218,10 +219,16 @@ function initCreateLeagueForm() {
 
             formatUI.innerHTML = `
                 <select id="new-league-format" class="w-full px-4 py-3 text-sm border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-bold text-blue-900 shadow-sm cursor-pointer transition-all">
-                    <option value="standard">Standard Format (All Matches)</option>
+                    <option value="standard">Standard Format (Single Competition)</option>
                     <option value="limits">Custom Weekly Limits</option>
                     <option value="teams">Favoured Teams (Specific Clubs)</option>
                 </select>
+
+                <div id="format-ui-standard" class="w-full p-1 transition-all">
+                    <select id="new-league-standard-comp" class="w-full px-4 py-3 text-sm bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-bold text-blue-900 shadow-inner cursor-pointer">
+                        ${comps.map(c => `<option value="${c}">${c}</option>`).join('')}
+                    </select>
+                </div>
 
                 <div id="format-ui-limits" class="hidden w-full p-3 bg-gray-50 rounded-xl border border-gray-200 max-h-48 overflow-y-auto shadow-inner">
                     <p class="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">Weekly Matches Count (Max 5 per comp. Leave 0 to ignore)</p>
@@ -241,10 +248,12 @@ function initCreateLeagueForm() {
             `;
 
             const formatDropdown = document.getElementById('new-league-format');
+            const standardBox = document.getElementById('format-ui-standard');
             const limitsBox = document.getElementById('format-ui-limits');
             const teamsBox = document.getElementById('format-ui-teams');
 
             formatDropdown.onchange = (e) => {
+                standardBox.classList.toggle('hidden', e.target.value !== 'standard');
                 limitsBox.classList.toggle('hidden', e.target.value !== 'limits');
                 teamsBox.classList.toggle('hidden', e.target.value !== 'teams');
             };
@@ -377,9 +386,12 @@ if (elements.leagues?.createBtn) {
         if (!name) return alert("Please enter a league name.");
         
         const format = document.getElementById('new-league-format').value;
-        let customRules = { format: format };
+        let customRules = null;
+        let targetComp = 'All';
 
-        if (format === 'limits') {
+        if (format === 'standard') {
+            targetComp = document.getElementById('new-league-standard-comp').value;
+        } else if (format === 'limits') {
             const ruleInputs = document.querySelectorAll('.comp-limit-input');
             let limits = {};
             let totalGames = 0;
@@ -392,13 +404,12 @@ if (elements.leagues?.createBtn) {
             });
             if (totalGames > 25) return alert("You cannot select more than 25 games overall per week.");
             if (totalGames === 0) return alert("Please select at least 1 match limit, or use the Standard format instead.");
-            customRules.limits = limits;
+            customRules = { format: 'limits', limits: limits };
         } else if (format === 'teams') {
             const teamsInput = document.getElementById('new-league-teams').value;
             if (!teamsInput.trim()) return alert("Please enter at least one team to track.");
             const teamsArr = teamsInput.split(',').map(t => t.trim()).filter(t => t.length > 0);
-            customRules.teams = teamsArr;
-            customRules.adhoc = []; 
+            customRules = { format: 'teams', teams: teamsArr, adhoc: [] };
         }
 
         const inviteCode = generateInviteCode();
@@ -408,7 +419,7 @@ if (elements.leagues?.createBtn) {
             invite_code: inviteCode, 
             created_by: currentUser.id, 
             sport, 
-            competition: 'All',
+            competition: targetComp,
             custom_rules: customRules
         }]).select().single();
         
@@ -623,7 +634,7 @@ async function fetchMyLeagues() {
     const fixDropdown = document.getElementById('fixture-league-context');
     if (fixDropdown) {
         const currentVal = fixDropdown.value;
-        fixDropdown.innerHTML = `<option value="all">All Matches</option>` +
+        fixDropdown.innerHTML = `<option value="all">My Active Matches</option>` +
             userLeaguesData.filter(l => l.sport === currentSport).map(l => `<option value="${l.id}">League Focus: ${l.name}</option>`).join('');
         if(Array.from(fixDropdown.options).some(o => o.value === currentVal)) fixDropdown.value = currentVal;
         else fixDropdown.value = 'all';
@@ -636,7 +647,7 @@ async function fetchMyLeagues() {
 
         const shareUrl = `${window.location.origin}${window.location.pathname}?invite=${l.invite_code}`;
         
-        let subtext = 'Standard Format';
+        let subtext = `Standard Format (${l.competition || 'All'})`;
         if (l.custom_rules) {
             if (l.custom_rules.format === 'limits') subtext = 'Custom Weekly Limits';
             if (l.custom_rules.format === 'teams') subtext = 'Favoured Teams Format';
@@ -685,11 +696,15 @@ async function fetchLeaderboard() {
     
     let validUids = null;
     let customRules = null;
+    let targetComp = compFilter;
 
     if (leagueFilter && leagueFilter !== 'global') {
-        const { data: leagueData } = await sbClient.from('leagues').select('custom_rules, league_members(user_id)').eq('id', leagueFilter).single();
+        const { data: leagueData } = await sbClient.from('leagues').select('competition, custom_rules, league_members(user_id)').eq('id', leagueFilter).single();
         if (leagueData) {
             customRules = leagueData.custom_rules;
+            if (!customRules && leagueData.competition && leagueData.competition !== 'All') {
+                targetComp = leagueData.competition;
+            }
             if (customRules && !customRules.format) {
                 customRules = { format: 'limits', limits: customRules };
             }
@@ -703,8 +718,8 @@ async function fetchLeaderboard() {
     
     let predQuery = sbClient.from('predictions').select(`uid, home_predicted, away_predicted, fixtures!inner(fixture_id, sport, competition, status, home_team, away_team, home_score_actual, away_score_actual, match_group)`).eq('fixtures.status', 'finished').eq('fixtures.sport', currentSport);
 
-    if (!customRules && compFilter !== 'All') {
-        predQuery = predQuery.eq('fixtures.competition', compFilter);
+    if (!customRules && targetComp !== 'All') {
+        predQuery = predQuery.eq('fixtures.competition', targetComp);
     }
 
     const { data: preds } = await predQuery;
@@ -840,19 +855,50 @@ async function fetchFixtures() {
         const fixDropdown = document.getElementById('fixture-league-context');
         const selectedLgId = fixDropdown ? fixDropdown.value : 'all';
 
-        if (selectedLgId !== 'all') {
-            const activeLeague = userLeaguesData.find(l => l.id === selectedLgId);
-            if (activeLeague && activeLeague.custom_rules && activeLeague.custom_rules.format === 'teams') {
-                const teams = activeLeague.custom_rules.teams || [];
-                const adhoc = activeLeague.custom_rules.adhoc || [];
+        if (selectedLgId === 'all') {
+            const activeSportLeagues = userLeaguesData.filter(l => l.sport === currentSport);
+            if (activeSportLeagues.length > 0) {
                 displayFixtures = displayFixtures.filter(f => {
-                    const isFavoured = teams.some(t => 
-                        f.home_team.toLowerCase().includes(t.toLowerCase()) || 
-                        f.away_team.toLowerCase().includes(t.toLowerCase())
-                    );
-                    const isAdhoc = adhoc.includes(f.fixture_id);
-                    return isFavoured || isAdhoc;
+                    return activeSportLeagues.some(league => {
+                        if (!league.custom_rules || league.custom_rules.format === 'standard') {
+                            return league.competition === f.competition || league.competition === 'All';
+                        }
+                        if (league.custom_rules.format === 'limits') {
+                            return league.custom_rules.limits && league.custom_rules.limits[f.competition] > 0;
+                        }
+                        if (league.custom_rules.format === 'teams') {
+                            const teams = league.custom_rules.teams || [];
+                            const adhoc = league.custom_rules.adhoc || [];
+                            const isFavoured = teams.some(t => 
+                                f.home_team.toLowerCase().includes(t.toLowerCase()) || 
+                                f.away_team.toLowerCase().includes(t.toLowerCase())
+                            );
+                            const isAdhoc = adhoc.includes(f.fixture_id);
+                            return isFavoured || isAdhoc;
+                        }
+                        return false;
+                    });
                 });
+            }
+        } else {
+            const activeLeague = userLeaguesData.find(l => l.id === selectedLgId);
+            if (activeLeague) {
+                if (activeLeague.custom_rules && activeLeague.custom_rules.format === 'teams') {
+                    const teams = activeLeague.custom_rules.teams || [];
+                    const adhoc = activeLeague.custom_rules.adhoc || [];
+                    displayFixtures = displayFixtures.filter(f => {
+                        const isFavoured = teams.some(t => 
+                            f.home_team.toLowerCase().includes(t.toLowerCase()) || 
+                            f.away_team.toLowerCase().includes(t.toLowerCase())
+                        );
+                        const isAdhoc = adhoc.includes(f.fixture_id);
+                        return isFavoured || isAdhoc;
+                    });
+                } else if (!activeLeague.custom_rules && activeLeague.competition !== 'All') {
+                    displayFixtures = displayFixtures.filter(f => f.competition === activeLeague.competition);
+                } else if (activeLeague.custom_rules && activeLeague.custom_rules.format === 'limits') {
+                     displayFixtures = displayFixtures.filter(f => activeLeague.custom_rules.limits && activeLeague.custom_rules.limits[f.competition] > 0);
+                }
             }
         }
 
