@@ -25,6 +25,8 @@ const elements = {
         container: document.getElementById('sport-nav-container'),
         icon: document.getElementById('header-sport-icon')
     },
+    sportNav: document.getElementById('sport-nav-container'),
+    mainTabs: document.getElementById('main-tabs-container'),
     tabs: { 
         fix: document.getElementById('tab-fixtures'), 
         lead: document.getElementById('tab-leaderboard'), 
@@ -333,41 +335,56 @@ function switchTab(target) {
         elements.tabs[target].classList.remove('border-transparent', 'text-gray-400');
         elements.tabs[target].classList.add('border-blue-900', 'text-blue-900');
     }
-    
-    if (elements.myLeaguesNavBtn) {
-        if (target === 'leg') {
-            elements.myLeaguesNavBtn.classList.add('bg-white', 'text-blue-900');
-            elements.myLeaguesNavBtn.classList.remove('bg-blue-800', 'text-white', 'border-blue-700');
-        } else {
-            elements.myLeaguesNavBtn.classList.remove('bg-white', 'text-blue-900');
-            elements.myLeaguesNavBtn.classList.add('bg-blue-800', 'text-white', 'border-blue-700');
-        }
-    }
 
-    if (target === 'fix') {
-        updateSEO(currentCompetition + ' Fixtures', 'Lock in your ' + currentCompetition + ' predictions today.');
-        populateFixtureLeagueFilter();
-        fetchFixtures();
-    }
-    if (target === 'lead') {
-        updateSEO('Sport Leaderboard', 'Check your ranking on the Scores on the Doors ' + currentSport + ' leaderboard.');
-        populateLeaderboardFilters();
-        fetchLeaderboard();
-    }
     if (target === 'leg') {
+        if (elements.sportNav) elements.sportNav.classList.add('hidden');
+        if (elements.mainTabs) elements.mainTabs.classList.add('hidden');
+        if (elements.myLeaguesNavBtn) {
+            elements.myLeaguesNavBtn.textContent = 'Back to Sports';
+            elements.myLeaguesNavBtn.classList.remove('bg-blue-800', 'text-white', 'border-blue-700');
+            elements.myLeaguesNavBtn.classList.add('bg-white', 'text-blue-900');
+        }
         updateSEO('Private Leagues', 'Create or join private predictor leagues with your friends and family.');
         fetchMyLeagues();
-    }
-    if (target === 'adm') {
-        updateSEO('Admin Dashboard', 'Manage API syncs and platform data.');
-        fetchAdminFixtures();
+    } else {
+        if (elements.sportNav) elements.sportNav.classList.remove('hidden');
+        if (elements.mainTabs) elements.mainTabs.classList.remove('hidden');
+        if (elements.myLeaguesNavBtn) {
+            elements.myLeaguesNavBtn.textContent = 'My Leagues';
+            elements.myLeaguesNavBtn.classList.add('bg-blue-800', 'text-white', 'border-blue-700');
+            elements.myLeaguesNavBtn.classList.remove('bg-white', 'text-blue-900');
+        }
+        
+        if (target === 'fix') {
+            updateSEO(currentCompetition + ' Fixtures', 'Lock in your ' + currentCompetition + ' predictions today.');
+            populateFixtureLeagueFilter();
+            fetchFixtures();
+        }
+        if (target === 'lead') {
+            updateSEO('Sport Leaderboard', 'Check your ranking on the Scores on the Doors ' + currentSport + ' leaderboard.');
+            populateLeaderboardFilters();
+            fetchLeaderboard();
+        }
+        if (target === 'adm') {
+            updateSEO('Admin Dashboard', 'Manage API syncs and platform data.');
+            fetchAdminFixtures();
+        }
     }
 }
 
 if (elements.tabs?.fix) elements.tabs.fix.onclick = () => switchTab('fix');
 if (elements.tabs?.lead) elements.tabs.lead.onclick = () => switchTab('lead');
 if (elements.tabs?.adm) elements.tabs.adm.onclick = () => switchTab('adm');
-if (elements.myLeaguesNavBtn) elements.myLeaguesNavBtn.onclick = () => switchTab('leg');
+
+if (elements.myLeaguesNavBtn) {
+    elements.myLeaguesNavBtn.onclick = () => {
+        if (elements.sections.leg.classList.contains('hidden')) {
+            switchTab('leg');
+        } else {
+            switchTab('fix');
+        }
+    };
+}
 
 if (elements.subTabs?.upcoming) {
     elements.subTabs.upcoming.onclick = () => {
