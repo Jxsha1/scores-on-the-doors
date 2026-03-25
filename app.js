@@ -172,25 +172,18 @@ window.setSport = (sport) => {
         }
     });
 
-    updateSEO(currentSport + ' Predictions', 'Predict ' + currentSport + ' match results and compete globally on Scores on the Doors.');
-
     renderCompetitionFilters();
-    populateFixtureLeagueFilter();
     
     const fixDropdown = document.getElementById('fixture-league-context');
     if (fixDropdown) {
         const currentVal = fixDropdown.value;
-        fixDropdown.innerHTML = `<option value="all">Global Feed (All Matches)</option>` +
+        fixDropdown.innerHTML = `<option value="all">All Matches</option>` +
             userLeaguesData.filter(l => l.sport === currentSport).map(l => `<option value="${l.id}">League Focus: ${l.name}</option>`).join('');
         if(Array.from(fixDropdown.options).some(o => o.value === currentVal)) fixDropdown.value = currentVal;
         else fixDropdown.value = 'all';
     }
 
-    fetchFixtures();
-    if (!elements.sections.lead.classList.contains('hidden')) {
-        populateLeaderboardFilters();
-        fetchLeaderboard();
-    }
+    switchTab('fix');
 };
 
 window.setCompetition = (comp) => {
@@ -312,7 +305,12 @@ function getBadge(pred, actual) {
 function switchTab(target) {
     if (!elements.sections?.[target]) return; 
     Object.values(elements.sections).forEach(s => { if(s) s.classList.add('hidden'); });
-    Object.values(elements.tabs).forEach(t => { if(t) t.classList.remove('border-blue-900', 'text-blue-900'); });
+    Object.values(elements.tabs).forEach(t => { 
+        if(t) {
+            t.classList.remove('border-blue-900', 'text-blue-900'); 
+            t.classList.add('border-transparent', 'text-gray-400');
+        }
+    });
     
     const stickyFooter = document.getElementById('sticky-footer');
     if (stickyFooter) {
@@ -321,6 +319,7 @@ function switchTab(target) {
     }
 
     elements.sections[target].classList.remove('hidden');
+    elements.tabs[target].classList.remove('border-transparent', 'text-gray-400');
     elements.tabs[target].classList.add('border-blue-900', 'text-blue-900');
     
     if (target === 'fix') {
@@ -624,7 +623,7 @@ async function fetchMyLeagues() {
     const fixDropdown = document.getElementById('fixture-league-context');
     if (fixDropdown) {
         const currentVal = fixDropdown.value;
-        fixDropdown.innerHTML = `<option value="all">Global Feed (All Matches)</option>` +
+        fixDropdown.innerHTML = `<option value="all">All Matches</option>` +
             userLeaguesData.filter(l => l.sport === currentSport).map(l => `<option value="${l.id}">League Focus: ${l.name}</option>`).join('');
         if(Array.from(fixDropdown.options).some(o => o.value === currentVal)) fixDropdown.value = currentVal;
         else fixDropdown.value = 'all';
@@ -664,7 +663,7 @@ async function fetchMyLeagues() {
 
     if (elements.leagues.filter) {
         const currentVal = elements.leagues.filter.value;
-        elements.leagues.filter.innerHTML = `<option value="global">Global Leaderboard</option>` + 
+        elements.leagues.filter.innerHTML = `<option value="global">Overall Leaderboard</option>` + 
             userLeaguesData.map(l => `<option value="${l.id}">${l.name}</option>`).join('');
         
         if(Array.from(elements.leagues.filter.options).some(o => o.value === currentVal)) {
