@@ -344,6 +344,14 @@ function switchTab(target) {
             elements.myLeaguesNavBtn.classList.remove('bg-blue-800', 'text-white', 'border-blue-700');
             elements.myLeaguesNavBtn.classList.add('bg-white', 'text-blue-900');
         }
+
+        if (elements.theme.nav) {
+            elements.theme.nav.className = 'text-white p-4 shadow-md flex justify-between items-center relative z-30 transition-colors duration-300 bg-gray-900';
+        }
+        if (elements.theme.icon) {
+            elements.theme.icon.innerHTML = '<svg class="w-8 h-8 text-white opacity-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>';
+        }
+
         updateSEO('Private Leagues', 'Create or join private predictor leagues with your friends and family.');
         fetchMyLeagues();
     } else {
@@ -353,6 +361,14 @@ function switchTab(target) {
             elements.myLeaguesNavBtn.textContent = 'My Leagues';
             elements.myLeaguesNavBtn.classList.add('bg-blue-800', 'text-white', 'border-blue-700');
             elements.myLeaguesNavBtn.classList.remove('bg-white', 'text-blue-900');
+        }
+
+        const theme = sportThemes[currentSport];
+        if (elements.theme.nav) {
+            elements.theme.nav.className = `text-white p-4 shadow-md flex justify-between items-center relative z-30 transition-colors duration-300 ${theme.nav}`;
+        }
+        if (elements.theme.icon) {
+            elements.theme.icon.innerHTML = `<img src="${theme.icon}" alt="${currentSport}" class="w-8 h-8 object-contain">`;
         }
         
         if (target === 'fix') {
