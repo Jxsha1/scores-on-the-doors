@@ -28,9 +28,9 @@ const elements = {
     tabs: { 
         fix: document.getElementById('tab-fixtures'), 
         lead: document.getElementById('tab-leaderboard'), 
-        leg: document.getElementById('tab-leagues'),
         adm: document.getElementById('tab-admin') 
     },
+    myLeaguesNavBtn: document.getElementById('nav-my-leagues-btn'),
     sections: { 
         fix: document.getElementById('section-fixtures'), 
         lead: document.getElementById('section-leaderboard'), 
@@ -328,9 +328,22 @@ function switchTab(target) {
     }
 
     elements.sections[target].classList.remove('hidden');
-    elements.tabs[target].classList.remove('border-transparent', 'text-gray-400');
-    elements.tabs[target].classList.add('border-blue-900', 'text-blue-900');
     
+    if (elements.tabs[target]) {
+        elements.tabs[target].classList.remove('border-transparent', 'text-gray-400');
+        elements.tabs[target].classList.add('border-blue-900', 'text-blue-900');
+    }
+    
+    if (elements.myLeaguesNavBtn) {
+        if (target === 'leg') {
+            elements.myLeaguesNavBtn.classList.add('bg-white', 'text-blue-900');
+            elements.myLeaguesNavBtn.classList.remove('bg-blue-800', 'text-white', 'border-blue-700');
+        } else {
+            elements.myLeaguesNavBtn.classList.remove('bg-white', 'text-blue-900');
+            elements.myLeaguesNavBtn.classList.add('bg-blue-800', 'text-white', 'border-blue-700');
+        }
+    }
+
     if (target === 'fix') {
         updateSEO(currentCompetition + ' Fixtures', 'Lock in your ' + currentCompetition + ' predictions today.');
         populateFixtureLeagueFilter();
@@ -353,8 +366,8 @@ function switchTab(target) {
 
 if (elements.tabs?.fix) elements.tabs.fix.onclick = () => switchTab('fix');
 if (elements.tabs?.lead) elements.tabs.lead.onclick = () => switchTab('lead');
-if (elements.tabs?.leg) elements.tabs.leg.onclick = () => switchTab('leg');
 if (elements.tabs?.adm) elements.tabs.adm.onclick = () => switchTab('adm');
+if (elements.myLeaguesNavBtn) elements.myLeaguesNavBtn.onclick = () => switchTab('leg');
 
 if (elements.subTabs?.upcoming) {
     elements.subTabs.upcoming.onclick = () => {
@@ -1503,7 +1516,10 @@ sbClient?.auth.onAuthStateChange((_, session) => {
     currentUser = session?.user || null;
     if (elements.loginBtn) {
         elements.loginBtn.textContent = currentUser ? 'Log Out' : 'Sign In';
-        elements.loginBtn.className = currentUser ? "bg-red-600 hover:bg-red-500 px-4 py-2 rounded text-sm font-semibold transition text-white" : "bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded text-sm font-semibold transition text-white";
+        elements.loginBtn.className = currentUser ? "bg-red-600 hover:bg-red-500 px-4 py-2 rounded text-sm font-semibold transition text-white shadow-sm active:scale-95" : "bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded text-sm font-semibold transition text-white shadow-sm active:scale-95";
+    }
+    if (elements.myLeaguesNavBtn) {
+        elements.myLeaguesNavBtn.classList.toggle('hidden', !currentUser);
     }
     fetchFixtures();
     fetchMyLeagues();

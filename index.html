@@ -31,7 +31,10 @@
                 </div>
             </div>
         </div>
-        <button id="login-btn" class="bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded text-sm font-semibold transition text-white">Sign In</button>
+        <div class="flex items-center gap-2">
+            <button id="nav-my-leagues-btn" class="hidden bg-blue-800 hover:bg-blue-700 border border-blue-700 px-3 py-2 rounded text-xs font-bold transition text-white shadow-sm active:scale-95">My Leagues</button>
+            <button id="login-btn" class="bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded text-sm font-semibold transition text-white shadow-sm active:scale-95">Sign In</button>
+        </div>
     </nav>
 
     <div id="sport-nav-container" class="bg-blue-950 flex overflow-x-auto whitespace-nowrap text-[10px] font-black tracking-widest no-scrollbar shadow-inner sticky top-0 z-20 transition-colors duration-300">
@@ -46,7 +49,6 @@
         <div class="flex border-b border-gray-200 mb-6 overflow-x-auto whitespace-nowrap no-scrollbar">
             <button id="tab-fixtures" class="px-4 py-3 font-bold border-b-2 border-blue-900 text-blue-900 transition-colors">Fixtures</button>
             <button id="tab-leaderboard" class="px-4 py-3 font-bold border-b-2 border-transparent text-gray-400 hover:text-blue-900 transition-colors">Leaderboard</button>
-            <button id="tab-leagues" class="px-4 py-3 font-bold border-b-2 border-transparent text-gray-400 hover:text-blue-900 transition-colors">Leagues</button>
             <button id="tab-admin" class="px-4 py-3 font-bold border-b-2 border-transparent text-red-500 hover:text-red-700 transition-colors">Admin</button>
         </div>
 
